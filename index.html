@@ -411,7 +411,7 @@ function getEntry(siret){ return loadSuivi()[siret]||{statut:"",journal:[],rappe
 function saveEntry(siret,entry){ const s=loadSuivi(); s[siret]=entry; saveSuivi(s); }
 function setStatut(siret,val){
   const e=getEntry(siret); e.statut=val; e.date=new Date().toISOString();
-  saveEntry(siret,e); render(); updateDash(); updateStats();
+  saveEntry(siret,e); render();
 }
 function addJournal(siret,type,texte){
   if(!texte.trim()) return;
@@ -660,6 +660,7 @@ function render(){
 
   updateSectionCounts();
   if(state._currentComInsee) ouvrirPanel(state._currentComInsee,true);
+  refreshActiveView();
 }
 
 function darken(hex){
@@ -710,9 +711,12 @@ function ouvrirPanel(insee,refresh=false){
   // Liste des entreprises
   const scroll=document.getElementById("cpScroll");
   if(state.fullRows){
-    // Mode détail complet
-    const siretSet=new Set(rowsCommune.map(r=>r.siret).filter(Boolean));
-    const rowsDetail=state.fullRows.filter(r=>String(r.Code_INSEE||"").trim()===insee);
+    // Mode détail complet — on filtre par les SIRETs qui passent les filtres actifs
+    const siretsFiltres=new Set(rowsCommune.map(r=>r.siret).filter(Boolean));
+    const rowsDetail=state.fullRows.filter(r=>{
+      const siret=String(r.SIRET_etablissement||r.SIRET||"").replace(".0","").trim();
+      return String(r.Code_INSEE||"").trim()===insee && siretsFiltres.has(siret);
+    });
     scroll.innerHTML=rowsDetail.slice(0,200).map(row=>{
       const siret=String(row.SIRET_etablissement||row.SIRET||"").replace(".0","").trim();
       const e=suivi[siret]||{};
@@ -1012,9 +1016,36 @@ function getRowsFiltres(){
     return true;
   });
 }
-// Retourne le Set des SIRETs correspondant aux filtres actifs
+// Retourne le Set des SIRETs filtrés par NAF + rayon UNIQUEMENT (pas sfActive)
+// utilisé pour les stats/dashboard afin de ne pas fausser les comptages
 function getFiltresSirets(){
-  return new Set(getRowsFiltres().map(r=>r.siret).filter(Boolean));
+  let raySet=null;
+  if(state.rayCenter&&state.rayKm){
+    raySet=new Set();
+    Object.entries(state.communes).forEach(([code,c])=>{
+      if(haversineKm(state.rayCenter.lat,state.rayCenter.lon,c.lat,c.lon)<=state.rayKm) raySet.add(code);
+    });
+  }
+  return new Set(state.rows.filter(r=>{
+    if(state.selectedNAF.size>0&&!state.selectedNAF.has(r.naf)) return false;
+    if(raySet&&!raySet.has(r.code_insee)) return false;
+    return true;
+  }).map(r=>r.siret).filter(Boolean));
+}
+// Retourne le total filtré par NAF + rayon (pour les stats)
+function getTotalFiltres(){
+  let raySet=null;
+  if(state.rayCenter&&state.rayKm){
+    raySet=new Set();
+    Object.entries(state.communes).forEach(([code,c])=>{
+      if(haversineKm(state.rayCenter.lat,state.rayCenter.lon,c.lat,c.lon)<=state.rayKm) raySet.add(code);
+    });
+  }
+  return state.rows.filter(r=>{
+    if(state.selectedNAF.size>0&&!state.selectedNAF.has(r.naf)) return false;
+    if(raySet&&!raySet.has(r.code_insee)) return false;
+    return true;
+  }).length;
 }
 
 // ── Vue Liste ──────────────────────────────────────────────────────────────
@@ -1102,8 +1133,7 @@ function updateDash(){
   const hasFiltres=state.selectedNAF.size>0||state.rayCenter;
   // Filtrer le suivi selon les filtres actifs
   const entries=Object.entries(suivi).filter(([siret])=>!hasFiltres||filtresSirets.has(siret));
-  const rowsFiltres=getRowsFiltres();
-  const total=rowsFiltres.length;
+  const total=getTotalFiltres();
   const nbContact=entries.filter(([,e])=>e.statut&&e.statut!=="").length;
   const nbRDV=entries.filter(([,e])=>e.statut==="rdv").length;
   const nbChaud=entries.filter(([,e])=>e.statut==="chaud").length;
@@ -1171,8 +1201,7 @@ function updateStats(){
   const suivi=loadSuivi();
   const filtresSirets=getFiltresSirets();
   const hasFiltres=state.selectedNAF.size>0||state.rayCenter;
-  const rowsFiltres=getRowsFiltres();
-  const totalFiltres=rowsFiltres.length;
+  const totalFiltres=getTotalFiltres();
   const suiviFiltres=hasFiltres?Object.fromEntries(Object.entries(suivi).filter(([s])=>filtresSirets.has(s))):suivi;
   const labelFiltres=hasFiltres?` <span style="font-size:11px;color:var(--accent-deep);background:var(--accent-light);padding:2px 8px;border-radius:999px;margin-left:6px">${totalFiltres.toLocaleString("fr-FR")} entreprises filtrées</span>`:"";
   const html=`
@@ -1306,6 +1335,14 @@ function exporterRapport(){
   toast(`📊 ${rows.length} entreprises exportées`);
 }
 window.exporterRapport=exporterRapport;
+
+// ── Refresh automatique du tab actif ──────────────────────────────────────────
+function refreshActiveView(){
+  const tab=document.querySelector(".tab.active")?.id?.replace("t-","");
+  if(tab==="dash") updateDash();
+  if(tab==="stats") updateStats();
+  if(tab==="liste") renderListe();
+}
 
 // ── Utils date ─────────────────────────────────────────────────────────────
 function formatDate(iso){ if(!iso) return ""; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
