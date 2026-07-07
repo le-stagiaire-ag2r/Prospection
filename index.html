@@ -938,6 +938,7 @@ async function showDetailMode(){
     hint.textContent = `⏳ Géocodage de ${Math.min(rowsVisibles.length,200)} adresses…`;
     hint.style.opacity = '1';
   }
+  const geoCache = await geocoderBatch(rowsVisibles);
   hint.style.opacity = '0';
 
   const suivi = loadSuivi();
