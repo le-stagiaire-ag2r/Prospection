@@ -478,6 +478,7 @@ function buildSectionTree(){
     if(!codesPresents.length) return;
     const totalSec=codesPresents.reduce((s,c)=>s+(state.nafCounts[c.id]||0),0);
     const item=document.createElement("div");
+    item.className="section-item"; item.dataset.sec=secKey;
     const head=document.createElement("div");
     head.className="section-head"; head.dataset.sec=secKey;
     head.innerHTML=`<span style="flex:1">${secData.label}</span><span class="cnt">${totalSec.toLocaleString("fr-FR")}</span><span class="arrow">▶</span>`;
