@@ -529,7 +529,6 @@ function switchTab(tab){
   if(tab==="carte") setTimeout(()=>S.map&&S.map.invalidateSize(),50);
   sauvegarderFiltres();
 }
-
 // ════════════════════════════════════════════════════════════════
 // INIT CARTE
 // ════════════════════════════════════════════════════════════════
@@ -555,17 +554,6 @@ document.addEventListener("DOMContentLoaded", function(){
     tryReopenFile();
   });
 });
-  S.map.on("moveend",()=>{ if(S.full) scheduleGeo(); });
-  restaurerFiltres();
-  initKeyboard();
-  checkLSSize();
-  // 1. Charger les communes EN PREMIER (obligatoire pour la carte)
-  await loadCommunes();
-  // 2. Charger data_mel.json automatiquement si disponible
-  const autoOk = await tryAutoLoad();
-  // 3. Si pas d'auto-load, essayer de rouvrir le fichier mémorisé
-  if(!autoOk) tryReopenFile();
-});
 
 async function loadCommunes(){
   const r=await fetch(`https://geo.api.gouv.fr/epcis/${EPCI}/communes?fields=nom,code,centre,codesPostaux&format=json`);
@@ -579,7 +567,6 @@ async function loadCommunes(){
   if(p.rayVille) document.getElementById("rayVille").value=p.rayVille;
   if(p.rayKm) document.getElementById("rayKm").value=p.rayKm;
 }
-
 function peuplerRayon(data){
   const sel=document.getElementById("rayVille");
   sel.innerHTML="<option value=''>— Commune...</option>";
@@ -588,7 +575,6 @@ function peuplerRayon(data){
   e.sort((a,b)=>a.cp.localeCompare(b.cp));
   e.forEach(x=>{const o=document.createElement("option");o.value=`${x.code}|${x.nom}|${x.cp}`;o.textContent=x.label;sel.appendChild(o);});
 }
-
 // ════════════════════════════════════════════════════════════════
 // MÉMORISATION FICHIER (File System Access API)
 // ════════════════════════════════════════════════════════════════
