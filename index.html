@@ -290,6 +290,24 @@ tbody td{padding:6px 9px;vertical-align:middle;}
       <div class="r-st" id="raySt"></div>
       <button class="r-clr" id="rayClr" style="display:none" onclick="effacerRayon()">✕ Effacer</button>
     </div>
+    <div class="rayon" style="border-top:1px solid var(--line)">
+      <div class="r-lbl"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Tournée terrain</div>
+      <input type="text" id="tourAddr" placeholder="Adresse du RDV, ex : 12 rue Nationale, Lille" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);margin-bottom:5px" onkeydown="if(event.key==='Enter')lancerTournee()">
+      <div class="rayon-row">
+        <select id="tourRad">
+          <option value="100">100 m</option>
+          <option value="250" selected>250 m</option>
+          <option value="500">500 m</option>
+          <option value="1000">1 km</option>
+        </select>
+        <button class="btn btn-p" id="btnTour" onclick="lancerTournee()" style="flex-shrink:0"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+      </div>
+      <div class="r-st" id="tourSt"></div>
+      <div style="display:flex;gap:8px;margin-top:3px">
+        <button class="r-clr" id="tourList" style="display:none;color:var(--ac-d)" onclick="ouvrirTourPanel()">Voir la liste</button>
+        <button class="r-clr" id="tourClr" style="display:none" onclick="effacerTournee()">✕ Effacer</button>
+      </div>
+    </div>
   </div>
 
   <!-- Vue Carte -->
@@ -447,6 +465,9 @@ const S = {
   lsCol:"nom", lsDir:1,
   gSearch:"",
   cpInsee:null,
+  panelMode:null,  // 'commune' | 'tour'
+  tour:null,       // {point:{lat,lon},radiusM,results:[],label}
+  tourCircle:null, tourMarker:null,
   ltSelected:new Set(),
   geoCache:{},   // siret→[lat,lon]
   _geoTimer:null,
@@ -582,7 +603,7 @@ document.addEventListener("DOMContentLoaded", function(){
   setTimeout(function(){ if(S.map) S.map.invalidateSize(); },100);
   window.addEventListener("resize",function(){ if(S.map) S.map.invalidateSize(); });
   S.map.on("click",function(){ fermerPanel(); });
-  S.map.on("zoomend",function(){ if(S.full&&S.cpInsee) renderGeoVisibles(); });
+  S.map.on("zoomend",function(){ if(S.full&&(S.cpInsee||S.tour)) renderGeoVisibles(); });
   S.map.on("moveend",function(){ if(S.full) scheduleGeo(); });
   restaurerFiltres();
   initKeyboard();
@@ -1078,6 +1099,7 @@ function renderGeoVisibles(){
 // PANNEAU COMMUNE
 // ════════════════════════════════════════════════════════════════
 function ouvrirPanel(insee, refresh=false){
+  S.panelMode="commune";
   S.cpInsee=insee;
   const commune=S.communes[insee];
   document.getElementById("cpTitle").textContent=commune?.nom||insee;
@@ -1086,14 +1108,26 @@ function ouvrirPanel(insee, refresh=false){
   S.map&&S.map.invalidateSize();
   renderPanel();
 }
+function ouvrirTourPanel(){
+  if(!S.tour) return;
+  S.panelMode="tour";
+  S.cpInsee=null;
+  document.getElementById("cpTitle").textContent="Tournée terrain";
+  document.getElementById("cpSearch").value="";
+  document.getElementById("cp").classList.add("open");
+  S.map&&S.map.invalidateSize();
+  renderPanel();
+}
+window.ouvrirTourPanel=ouvrirTourPanel;
 function fermerPanel(){
   document.getElementById("cp").classList.remove("open");
-  S.cpInsee=null;
+  S.cpInsee=null; S.panelMode=null;
   S.map&&S.map.invalidateSize();
 }
 window.fermerPanel=fermerPanel;
 
 function renderPanel(){
+  if(S.panelMode==="tour"){ renderTourPanel(); return; }
   const insee=S.cpInsee; if(!insee) return;
   const suivi=loadSuivi();
   const rs=getRaySet();
@@ -1136,6 +1170,33 @@ function renderPanel(){
     </div>`;
   }).join("")||"<div style='padding:14px;color:#999;font-size:12px;text-align:center'>Aucun résultat.</div>";
   if(rowsDetail.length>300) scroll.innerHTML+=`<div style="padding:8px;text-align:center;font-size:11px;color:#999">+${rowsDetail.length-300} autres — utilise le filtre</div>`;
+}
+
+function renderTourPanel(){
+  if(!S.tour) return;
+  const suivi=loadSuivi();
+  const qSearch=norm(document.getElementById("cpSearch").value);
+  document.getElementById("cpSub").textContent=`${S.tour.results.length.toLocaleString("fr-FR")} entreprises · rayon ${S.tour.radiusM} m`;
+  const stCounts={};
+  S.tour.results.forEach(r=>{const st=suivi[r.siret]?.statut||"";stCounts[st]=(stCounts[st]||0)+1;});
+  document.getElementById("cpStats").innerHTML=Object.entries(stCounts)
+    .sort((a,b)=>ST_PRI.indexOf(a[0])-ST_PRI.indexOf(b[0]))
+    .map(([s,n])=>{const st=ST[s]||ST[""];return `<span class="cp-stat" style="background:${st.bg};color:${st.color}">${st.label.split(" ").slice(0,2).join(" ")} ${n}</span>`;}).join("");
+  const scroll=document.getElementById("cpScroll");
+  let rows=S.tour.results;
+  if(qSearch) rows=rows.filter(r=>norm((r.nom||"")+" "+(r.activite||"")).includes(qSearch));
+  scroll.innerHTML=rows.map(r=>{
+    const e=suivi[r.siret]||{}; const st=ST[e.statut||""]||ST[""];
+    const opts=Object.entries(ST).map(([k,v])=>`<option value="${k}"${k===(e.statut||"")?" selected":""}>${v.label}</option>`).join("");
+    const distLabel=r.distM<1000?`${Math.round(r.distM)} m`:`${(r.distM/1000).toFixed(1)} km`;
+    return `<div class="cp-row">
+      <div style="flex:1" onclick="ouvrirModal('${r.siret}')">
+        <div class="cp-nom"><span style="font-family:var(--mono);font-size:9.5px;color:var(--ac-d);margin-right:4px">${distLabel}</span>${(r.nom||"—").substring(0,26)}</div>
+        <div class="cp-naf">${(r.activite||"").substring(0,32)}</div>
+      </div>
+      <select class="cp-sel" style="background:${st.bg};color:${st.color}" onchange="cpSetStatut('${r.siret}',this)">${opts}</select>
+    </div>`;
+  }).join("")||"<div style='padding:14px;color:#999;font-size:12px;text-align:center'>Aucune entreprise géocodée dans ce rayon. Élargis le rayon ou zoome sur la carte pour lancer le géocodage.</div>";
 }
 
 async function chargerFullEtPanel(insee){
@@ -1354,6 +1415,83 @@ function haversineKm(la1,lo1,la2,lo2){
   const a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
+
+// ════════════════════════════════════════════════════════════════
+// TOURNÉE TERRAIN (entreprises autour d'une adresse précise)
+// ════════════════════════════════════════════════════════════════
+async function lancerTournee(){
+  const addrInput=document.getElementById("tourAddr");
+  const addr=addrInput.value.trim();
+  if(!addr){ toast("Entre une adresse."); return; }
+  if(!S.full){ const ok=await chargerFull(); if(!ok) return; }
+  const radiusM=parseInt(document.getElementById("tourRad").value);
+  const btn=document.getElementById("btnTour");
+  const stEl=document.getElementById("tourSt");
+  btn.disabled=true;
+  stEl.textContent="Recherche de l'adresse...";
+  try{
+    const res=await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(addr)}&limit=1`);
+    const data=await res.json();
+    if(!data.features||!data.features.length){
+      stEl.textContent="Adresse introuvable — précise la ville.";
+      btn.disabled=false; return;
+    }
+    const feat=data.features[0];
+    const [lon,lat]=feat.geometry.coordinates;
+    const label=feat.properties.label;
+
+    if(S.tourCircle) S.map.removeLayer(S.tourCircle);
+    if(S.tourMarker) S.map.removeLayer(S.tourMarker);
+
+    const zoom = radiusM<=100?18:radiusM<=250?17:radiusM<=500?16:15;
+    S.map.setView([lat,lon],zoom);
+    S.tourCircle=L.circle([lat,lon],{radius:radiusM,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:.08,weight:2,dashArray:"5,5"}).addTo(S.map);
+    S.tourMarker=L.circleMarker([lat,lon],{radius:7,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:1,weight:2}).addTo(S.map).bindTooltip(label);
+
+    stEl.innerHTML='<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Géocodage des entreprises du secteur...';
+    await geocodeVisibles();
+
+    const rs=getRaySet();
+    const candidats=S.rows.filter(r=>{
+      if(S.selNAF.size>0&&!S.selNAF.has(r.naf)) return false;
+      if(rs&&!rs.has(r.insee)) return false;
+      return true;
+    });
+    const results=[];
+    candidats.forEach(r=>{
+      const geo=S.geoCache[r.siret]; if(!geo) return;
+      const d=haversineKm(lat,lon,geo.pos[0],geo.pos[1])*1000;
+      if(d<=radiusM){
+        const full=findFull(r.siret);
+        results.push({siret:r.siret,nom:full?.Nom||"",activite:full?.Activite||full?.Code_NAF||"",distM:d});
+      }
+    });
+    results.sort((a,b)=>a.distM-b.distM);
+    S.tour={point:{lat,lon},radiusM,results,label};
+
+    stEl.innerHTML='<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> '+label;
+    document.getElementById("tourClr").style.display="inline-block";
+    document.getElementById("tourList").style.display="inline-block";
+    ouvrirTourPanel();
+    toast(`${results.length} entreprise${results.length>1?"s":""} trouvée${results.length>1?"s":""} dans ${radiusM} m`);
+  }catch(e){
+    stEl.textContent="Erreur de géocodage — réessaie.";
+  }
+  btn.disabled=false;
+}
+window.lancerTournee=lancerTournee;
+
+function effacerTournee(){
+  S.tour=null;
+  if(S.tourCircle){ S.map.removeLayer(S.tourCircle); S.tourCircle=null; }
+  if(S.tourMarker){ S.map.removeLayer(S.tourMarker); S.tourMarker=null; }
+  document.getElementById("tourAddr").value="";
+  document.getElementById("tourSt").textContent="";
+  document.getElementById("tourClr").style.display="none";
+  document.getElementById("tourList").style.display="none";
+  if(S.panelMode==="tour") fermerPanel();
+}
+window.effacerTournee=effacerTournee;
 
 // ════════════════════════════════════════════════════════════════
 // VUE LISTE
