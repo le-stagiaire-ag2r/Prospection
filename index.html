@@ -533,12 +533,11 @@ function switchTab(tab){
 // ════════════════════════════════════════════════════════════════
 // INIT CARTE
 // ════════════════════════════════════════════════════════════════
-document.addEventListener("DOMContentLoaded",()=>{
+document.addEventListener("DOMContentLoaded", async ()=>{
   S.map=L.map("map",{zoomControl:true}).setView([50.629,3.057],10);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
     attribution:"&copy; OpenStreetMap &copy; CARTO",maxZoom:19
   }).addTo(S.map);
-  loadCommunes();
   setTimeout(()=>S.map&&S.map.invalidateSize(),100);
   window.addEventListener("resize",()=>S.map&&S.map.invalidateSize());
   S.map.on("click",()=>fermerPanel());
@@ -547,9 +546,12 @@ document.addEventListener("DOMContentLoaded",()=>{
   restaurerFiltres();
   initKeyboard();
   checkLSSize();
-  // Charger data_mel.json automatiquement s'il est sur le même serveur
-  tryAutoLoad();
-  tryReopenFile();
+  // 1. Charger les communes EN PREMIER (obligatoire pour la carte)
+  await loadCommunes();
+  // 2. Charger data_mel.json automatiquement si disponible
+  const autoOk = await tryAutoLoad();
+  // 3. Si pas d'auto-load, essayer de rouvrir le fichier mémorisé
+  if(!autoOk) tryReopenFile();
 });
 
 async function loadCommunes(){
@@ -596,11 +598,14 @@ async function loadGeoCache(){ return (await idbGet("geocode","all"))||{}; }
 async function saveGeoCache(d){ await idbPut("geocode","all",d); }
 
 async function tryAutoLoad(){
-  // Charge data_mel.json automatiquement s'il est à côté du HTML
-  if(window.location.protocol==="file:") return;
+  // Charge data_mel.json automatiquement s'il est à côté du HTML (GitHub Pages, Netlify)
+  if(window.location.protocol==="file:") return false;
   try{
-    const base=window.location.href.split("?")[0].replace(/\/[^\/]*$","/");
-    const url=base+"data_mel.json";
+    // Construire l'URL de façon robuste
+    const loc=window.location.pathname;
+    const dir=loc.endsWith("/")?loc:loc.substring(0,loc.lastIndexOf("/")+1);
+    const url=window.location.origin+dir+"data_mel.json";
+    console.log("Tentative auto-load:", url);
     showLoading("Chargement automatique…","data_mel.json",10);
     const res=await fetch(url,{cache:"default"});
     if(!res.ok){ hideLoading(); return; }
@@ -640,11 +645,6 @@ async function tryAutoLoad(){
       });
     }
     S.geoCache=await loadGeoCache();
-    // Attendre que les communes soient chargées
-    let tries=0;
-    while(Object.keys(S.communes).length===0&&tries<20){
-      await new Promise(r=>setTimeout(r,300)); tries++;
-    }
     buildSecTree(); render();
     document.getElementById("nafSearch").disabled=false;
     document.getElementById("globalSearch").disabled=false;
@@ -652,9 +652,11 @@ async function tryAutoLoad(){
     document.getElementById("fileLbl").textContent="✅ data_mel.json";
     hideLoading();
     toast("✅ "+S.rows.length.toLocaleString("fr-FR")+" entreprises chargées");
+    return true;
   }catch(e){
     hideLoading();
     console.warn("Auto-load échoué:",e.message);
+    return false;
   }
 }
 
