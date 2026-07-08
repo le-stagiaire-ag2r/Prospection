@@ -467,7 +467,7 @@ const S = {
   cpInsee:null,
   panelMode:null,  // 'commune' | 'tour'
   tour:null,       // {point:{lat,lon},radiusM,results:[],label}
-  tourCircle:null, tourMarker:null,
+  tourCircle:null, tourMarker:null, tourMarkers:{},
   ltSelected:new Set(),
   geoCache:{},   // siret→[lat,lon]
   _geoTimer:null,
@@ -1065,15 +1065,16 @@ function render(){
     const c=S.communes[insee]; if(!c) return;
     const radius=4+Math.sqrt(n/Math.max(maxC,1))*40;
     const {color,opacity,contacted,total}=getCommuneColor(insee);
-    const marker=L.circleMarker([c.lat,c.lon],{radius,fillColor:color,color:darken(color),weight:1.5,fillOpacity:opacity});
+    const dimmed=!!S.tour;
+    const marker=L.circleMarker([c.lat,c.lon],{radius,fillColor:color,color:darken(color),weight:1.5,fillOpacity:dimmed?0.05:opacity,opacity:dimmed?0.12:1,interactive:!dimmed});
     // Label % si contactés et assez zoomé
-    if(zoom>=11&&contacted>0){
+    if(zoom>=11&&contacted>0&&!dimmed){
       const pct=Math.round(contacted/total*100);
       marker.bindTooltip(`${c.nom}<br><b>${pct}%</b> contacté`,{permanent:false,direction:"top",className:"leaflet-tooltip"});
     }
     marker.addTo(S.map);
     marker._insee=insee;
-    marker.on("click",e=>{L.DomEvent.stopPropagation(e);ouvrirPanel(insee);});
+    if(!dimmed) marker.on("click",e=>{L.DomEvent.stopPropagation(e);ouvrirPanel(insee);});
     S.markers[insee]=marker;
   });
   const nbContact=Object.values(loadSuivi()).filter(e=>e.statut&&e.statut!=="").length;
@@ -1204,11 +1205,27 @@ async function chargerFullEtPanel(insee){
 }
 window.chargerFullEtPanel=chargerFullEtPanel;
 
+function renderTourMarkers(){
+  Object.values(S.tourMarkers).forEach(m=>S.map.removeLayer(m));
+  S.tourMarkers={};
+  if(!S.tour) return;
+  const suivi=loadSuivi();
+  S.tour.results.forEach(r=>{
+    const geo=S.geoCache[r.siret]; if(!geo) return;
+    const st=ST[suivi[r.siret]?.statut||""]||ST[""];
+    const mk=L.circleMarker(geo.pos,{radius:6,color:darken(st.mc),fillColor:st.mc,fillOpacity:.95,weight:1.5}).addTo(S.map);
+    mk.bindTooltip(r.nom||"—",{direction:"top"});
+    mk.on("click",e=>{ L.DomEvent.stopPropagation(e); ouvrirModal(r.siret); });
+    S.tourMarkers[r.siret]=mk;
+  });
+}
+
 function cpSetStatut(siret,sel){
   setStatut(siret,sel.value);
   const st=ST[sel.value]||ST[""];
   sel.style.background=st.bg; sel.style.color=st.color;
   renderPanel();
+  if(S.tour&&S.tourMarkers[siret]) renderTourMarkers();
 }
 window.cpSetStatut=cpSetStatut;
 
@@ -1276,7 +1293,8 @@ function renderJournal(siret){
 function moSetStatut(siret,val,btn){
   document.querySelectorAll("#moStBtns button").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active"); setStatut(siret,val);
-  if(S.cpInsee) renderPanel();
+  if(S.cpInsee||S.panelMode==="tour") renderPanel();
+  if(S.tour&&S.tourMarkers[siret]) renderTourMarkers();
 }
 window.moSetStatut=moSetStatut;
 
@@ -1468,6 +1486,8 @@ async function lancerTournee(){
     });
     results.sort((a,b)=>a.distM-b.distM);
     S.tour={point:{lat,lon},radiusM,results,label};
+    renderTourMarkers();
+    render();
 
     stEl.innerHTML='<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> '+label;
     document.getElementById("tourClr").style.display="inline-block";
@@ -1485,11 +1505,14 @@ function effacerTournee(){
   S.tour=null;
   if(S.tourCircle){ S.map.removeLayer(S.tourCircle); S.tourCircle=null; }
   if(S.tourMarker){ S.map.removeLayer(S.tourMarker); S.tourMarker=null; }
+  Object.values(S.tourMarkers).forEach(m=>S.map.removeLayer(m));
+  S.tourMarkers={};
   document.getElementById("tourAddr").value="";
   document.getElementById("tourSt").textContent="";
   document.getElementById("tourClr").style.display="none";
   document.getElementById("tourList").style.display="none";
   if(S.panelMode==="tour") fermerPanel();
+  render();
 }
 window.effacerTournee=effacerTournee;
 
