@@ -210,7 +210,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
 
 <!-- Loading screen -->
 <div class="loading-screen" id="loadingScreen">
-  <div class="ls-title" id="lsTitle">Chargement…</div>
+  <div class="ls-title" id="lsTitle">Chargement...</div>
   <div class="ls-sub" id="lsSub"></div>
   <div class="ls-bar-wrap"><div class="ls-bar" id="lsBar"></div></div>
 </div>
@@ -224,7 +224,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
   <span class="file-lbl" id="fileLbl">aucun fichier</span>
   <div class="hd-search">
     <span>🔍</span>
-    <input type="text" id="globalSearch" placeholder="Rechercher…" disabled oninput="onGlobalSearch(this.value)" title="Raccourci : /">
+    <input type="text" id="globalSearch" placeholder="Rechercher..." disabled oninput="onGlobalSearch(this.value)" title="Raccourci : /">
   </div>
   <button class="btn btn-o" id="btnExport" style="display:none" onclick="exporterSelection()">⬇️ Exporter</button>
   <button class="btn btn-v" onclick="exporterRapport()">📊 Rapport</button>
@@ -263,7 +263,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
   <div class="sb">
     <div class="sb-h">
       <div class="sw"><span class="si">🔍</span>
-        <input type="text" id="nafSearch" placeholder="Secteur d'activité…" disabled oninput="onNafSearch(this.value)">
+        <input type="text" id="nafSearch" placeholder="Secteur d'activité..." disabled oninput="onNafSearch(this.value)">
       </div>
     </div>
     <div class="chips" id="chipsArea" style="display:none"></div>
@@ -273,7 +273,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
     </div>
     <div class="rayon">
       <div class="r-lbl">📍 Rayon géographique</div>
-      <select id="rayVille"><option value="">— Commune…</option></select>
+      <select id="rayVille"><option value="">— Commune...</option></select>
       <div class="rayon-row">
         <select id="rayKm">
           <option value="1">1 km</option><option value="2">2 km</option>
@@ -304,7 +304,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
       </div>
       <div class="cp-stats" id="cpStats"></div>
       <div class="cp-search">
-        <input type="text" id="cpSearch" placeholder="🔍 Filtrer dans cette commune…" oninput="renderPanel()">
+        <input type="text" id="cpSearch" placeholder="🔍 Filtrer dans cette commune..." oninput="renderPanel()">
       </div>
       <div class="cp-scroll" id="cpScroll"></div>
     </div>
@@ -323,12 +323,12 @@ tbody td{padding:6px 9px;vertical-align:middle;}
         <option value="chaud">⭐ Chaud</option>
       </select>
       <select id="ltCommune" onchange="renderListe()"><option value="">Toutes communes</option></select>
-      <input type="text" id="ltSearch" placeholder="🔍 Nom…" oninput="renderListe()" style="min-width:140px">
+      <input type="text" id="ltSearch" placeholder="🔍 Nom..." oninput="renderListe()" style="min-width:140px">
       <span class="lt-cnt" id="ltCnt"></span>
       <div class="lt-bulk" id="ltBulk">
         <span id="ltBulkCnt">0 sélect.</span>
         <select id="ltBulkSt" onchange="bulkSetStatut(this.value)">
-          <option value="">Changer statut…</option>
+          <option value="">Changer statut...</option>
           <option value="">⬜ Non contacté</option>
           <option value="a_contacter">🔵 À contacter</option>
           <option value="en_cours">🟡 En cours</option>
@@ -506,7 +506,7 @@ function toast(msg){
 // ── Loading screen ───────────────────────────────────────────────────────────
 function showLoading(title,sub,pct){
   const ls=document.getElementById("loadingScreen");
-  document.getElementById("lsTitle").textContent=title||"Chargement…";
+  document.getElementById("lsTitle").textContent=title||"Chargement...";
   document.getElementById("lsSub").textContent=sub||"";
   document.getElementById("lsBar").style.width=(pct||0)+"%";
   ls.classList.add("show");
@@ -533,15 +533,28 @@ function switchTab(tab){
 // ════════════════════════════════════════════════════════════════
 // INIT CARTE
 // ════════════════════════════════════════════════════════════════
-document.addEventListener("DOMContentLoaded", async ()=>{
+document.addEventListener("DOMContentLoaded", function(){
   S.map=L.map("map",{zoomControl:true}).setView([50.629,3.057],10);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
     attribution:"&copy; OpenStreetMap &copy; CARTO",maxZoom:19
   }).addTo(S.map);
-  setTimeout(()=>S.map&&S.map.invalidateSize(),100);
-  window.addEventListener("resize",()=>S.map&&S.map.invalidateSize());
-  S.map.on("click",()=>fermerPanel());
-  S.map.on("zoomend",()=>{ if(S.full&&S.cpInsee) renderGeoVisibles(); });
+  setTimeout(function(){ if(S.map) S.map.invalidateSize(); },100);
+  window.addEventListener("resize",function(){ if(S.map) S.map.invalidateSize(); });
+  S.map.on("click",function(){ fermerPanel(); });
+  S.map.on("zoomend",function(){ if(S.full&&S.cpInsee) renderGeoVisibles(); });
+  S.map.on("moveend",function(){ if(S.full) scheduleGeo(); });
+  restaurerFiltres();
+  initKeyboard();
+  checkLSSize();
+  loadCommunes().then(function(){
+    return tryAutoLoad();
+  }).then(function(ok){
+    if(!ok) tryReopenFile();
+  }).catch(function(e){
+    console.warn("Init:", e.message);
+    tryReopenFile();
+  });
+});
   S.map.on("moveend",()=>{ if(S.full) scheduleGeo(); });
   restaurerFiltres();
   initKeyboard();
@@ -569,7 +582,7 @@ async function loadCommunes(){
 
 function peuplerRayon(data){
   const sel=document.getElementById("rayVille");
-  sel.innerHTML="<option value=''>— Commune…</option>";
+  sel.innerHTML="<option value=''>— Commune...</option>";
   const e=[];
   data.forEach(c=>(c.codesPostaux||[c.code]).forEach(cp=>e.push({label:`${cp} (${c.nom})`,cp,nom:c.nom,code:c.code})));
   e.sort((a,b)=>a.cp.localeCompare(b.cp));
@@ -606,12 +619,12 @@ async function tryAutoLoad(){
     const dir=loc.endsWith("/")?loc:loc.substring(0,loc.lastIndexOf("/")+1);
     const url=window.location.origin+dir+"data_mel.json";
     console.log("Tentative auto-load:", url);
-    showLoading("Chargement automatique…","data_mel.json",10);
+    showLoading("Chargement automatique...","data_mel.json",10);
     const res=await fetch(url,{cache:"default"});
     if(!res.ok){ hideLoading(); return; }
-    showLoading("Téléchargement…","",40);
+    showLoading("Téléchargement...","",40);
     const text=await res.text();
-    showLoading("Indexation des données…","",70);
+    showLoading("Indexation des données...","",70);
     // Parser directement sans repasser par File
     const data=JSON.parse(text);
     S.rows=[]; S.comSirets={}; S.nafCounts={}; S.full=[];
@@ -666,7 +679,7 @@ async function tryReopenFile(){
   try{
     const perm=await h.queryPermission({mode:"read"});
     if(perm==="granted"||await h.requestPermission({mode:"read"})==="granted"){
-      showLoading("Rechargement du fichier…","",10);
+      showLoading("Rechargement du fichier...","",10);
       const file=await h.getFile();
       await chargerFichier(file,file.name);
       toast("📂 Fichier rechargé automatiquement");
@@ -698,7 +711,7 @@ async function chargerFichier(file,nom){
   document.getElementById("fileLbl").textContent=nom;
   S.fichier=file;
   const isJSON=nom.toLowerCase().endsWith(".json");
-  showLoading(isJSON?"Chargement JSON…":"Lecture Excel…","(peut prendre 30s pour un .xlsx)",20);
+  showLoading(isJSON?"Chargement JSON...":"Lecture Excel...","(peut prendre 30s pour un .xlsx)",20);
   try{
     if(isJSON){
       await chargerJSON(file);
@@ -728,11 +741,11 @@ async function chargerFichier(file,nom){
 }
 
 async function chargerJSON(file){
-  showLoading("Lecture JSON…","",30);
+  showLoading("Lecture JSON...","",30);
   const text=await file.text();
-  showLoading("Parsing…","",55);
+  showLoading("Parsing...","",55);
   const data=JSON.parse(text);
-  showLoading("Indexation…","",75);
+  showLoading("Indexation...","",75);
   S.rows=[]; S.comSirets={}; S.nafCounts={}; S.full=[];
 
   // Support format compact (tableau de tableaux) ET format objet classique
@@ -785,12 +798,12 @@ async function chargerJSON(file){
 }
 
 async function chargerExcel(file){
-  showLoading("Lecture Excel…","",30);
+  showLoading("Lecture Excel...","",30);
   const buf=await file.arrayBuffer();
-  showLoading("Décompression…","",55);
+  showLoading("Décompression...","",55);
   const wb=XLSX.read(buf,{type:"array",sheets:["Toutes_entreprises"]});
   const sn=wb.SheetNames.includes("Toutes_entreprises")?"Toutes_entreprises":wb.SheetNames[0];
-  showLoading("Indexation…","",75);
+  showLoading("Indexation...","",75);
   const ws=wb.Sheets[sn];
   const range=XLSX.utils.decode_range(ws["!ref"]||"A1");
   const header={};
@@ -815,13 +828,13 @@ async function chargerExcel(file){
 async function chargerFull(){
   if(S.full) return true;
   if(!S.fichier){alert("Charge un fichier d'abord.");return false;}
-  showLoading("Chargement des données complètes…","",10);
+  showLoading("Chargement des données complètes...","",10);
   try{
     const buf=await S.fichier.arrayBuffer();
-    showLoading("Lecture…","",40);
+    showLoading("Lecture...","",40);
     const wb=XLSX.read(buf,{type:"array",sheets:["Toutes_entreprises"]});
     const sn=wb.SheetNames.includes("Toutes_entreprises")?"Toutes_entreprises":wb.SheetNames[0];
-    showLoading("Indexation…","",80);
+    showLoading("Indexation...","",80);
     S.full=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:""});
     hideLoading();
     return true;
@@ -855,7 +868,7 @@ async function geocodeVisibles(){
   if(!aGeo.length) return;
   const batch=aGeo.slice(0,200);
   const hint=document.getElementById("geoHint");
-  hint.textContent=`📍 Géocodage de ${batch.length} adresses…`; hint.classList.add("show");
+  hint.textContent=`📍 Géocodage de ${batch.length} adresses...`; hint.classList.add("show");
   try{
     const lines=["id,adresse",...batch.map(x=>`${x.siret},"${x.adresse}"`)];
     const fd=new FormData();
@@ -1122,7 +1135,7 @@ document.getElementById("moSub").innerHTML=
     <div class="j-entries" id="moJournal">${renderJournal(siret)}</div>
     <div class="j-add">
       <select id="jType">${Object.entries(JT).map(([k,v])=>`<option value="${k}">${v} ${k.charAt(0).toUpperCase()+k.slice(1)}</option>`).join("")}</select>
-      <input type="text" id="jTxt" placeholder="Ajouter une entrée…" onkeydown="if(event.key==='Enter')addJ('${siret}')">
+      <input type="text" id="jTxt" placeholder="Ajouter une entrée..." onkeydown="if(event.key==='Enter')addJ('${siret}')">
       <button onclick="addJ('${siret}')">+</button>
     </div>`;
   const geo=S.geoCache[siret];
@@ -1426,7 +1439,7 @@ function updateDash(){
   const ctx=document.getElementById("dashCtx");
   if(hasFiltres){
     ctx.style.display="block";
-    ctx.textContent=`Données filtrées : ${S.selNAF.size>0?[...S.selNAF].slice(0,2).join(", ")+(S.selNAF.size>2?"…":""):""}${S.rayC?" · rayon "+S.rayKm+"km":""} — ${total.toLocaleString("fr-FR")} entreprises`;
+    ctx.textContent=`Données filtrées : ${S.selNAF.size>0?[...S.selNAF].slice(0,2).join(", ")+(S.selNAF.size>2?"...":""):""}${S.rayC?" · rayon "+S.rayKm+"km":""} — ${total.toLocaleString("fr-FR")} entreprises`;
   } else { ctx.style.display="none"; }
   document.getElementById("dashCards").innerHTML=`
     <div class="dc"><div class="dc-n">${total.toLocaleString("fr-FR")}</div><div class="dc-l">Prospects</div></div>
@@ -1526,7 +1539,7 @@ function refreshActiveView(){
 // ════════════════════════════════════════════════════════════════
 async function exporterSelection(){
   if(!S.fichier){alert("Charge un fichier.");return;}
-  const btn=document.getElementById("btnExport"); btn.textContent="⏳…"; btn.disabled=true;
+  const btn=document.getElementById("btnExport"); btn.textContent="⏳..."; btn.disabled=true;
   try{
     const ok=await chargerFull(); if(!ok){btn.textContent="⬇️ Exporter";btn.disabled=false;return;}
     const rs=getRaySet(); const suivi=loadSuivi();
