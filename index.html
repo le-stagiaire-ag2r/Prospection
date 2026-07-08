@@ -935,35 +935,49 @@ async function geocodeVisiblesInner(){
     aGeo.push({siret:r.siret,adresse:String(full.Adresse||"").replace(/"/g,"'").replace(/,/g," ").trim()});
   });
   if(!aGeo.length) return;
-  const batch=aGeo.slice(0,200);
+  await geocodeBatch(aGeo.slice(0,200));
+}
+
+// Géocode une liste explicite {siret,adresse} par lots de 200, indépendamment du zoom/de la carte.
+// Retourne le nombre d'adresses effectivement géocodées avec succès.
+async function geocodeBatch(items){
+  if(!items.length) return 0;
   const hint=document.getElementById("geoHint");
-  hint.textContent=`Géocodage de ${batch.length} adresses...`; hint.classList.add("show");
-  try{
-    const lines=["id,adresse",...batch.map(x=>`${x.siret},"${x.adresse}"`)];
-    const fd=new FormData();
-    fd.append("data",new Blob([lines.join("\n")],{type:"text/csv"}),"a.csv");
-    fd.append("columns","adresse");
-    fd.append("result_columns","result_latitude");
-    fd.append("result_columns","result_longitude");
-    fd.append("result_columns","result_score");
-    const res=await fetch("https://api-adresse.data.gouv.fr/search/csv/",{method:"POST",body:fd});
-    const text=await res.text();
-    const lignes=text.trim().split("\n"); if(lignes.length<2) return;
-    const h=parseCSV(lignes[0]);
-    const iId=h.indexOf("id"),iLat=h.findIndex(x=>x.includes("latitude"));
-    const iLon=h.findIndex(x=>x.includes("longitude")),iScr=h.findIndex(x=>x.includes("score"));
-    if(iId<0||iLat<0||iLon<0) return;
-    lignes.slice(1).forEach(line=>{
-      if(!line.trim()) return;
-      const c=parseCSV(line);
-      const siret=(c[iId]||"").trim();
-      const lat=parseFloat(c[iLat]),lon=parseFloat(c[iLon]),score=parseFloat(c[iScr]);
-      if(siret&&!isNaN(lat)&&!isNaN(lon)&&score>0.5) S.geoCache[siret]={pos:[lat,lon],score};
-    });
-    await saveGeoCache(S.geoCache);
-    render();
-  }catch(e){}
+  let total=0;
+  for(let i=0;i<items.length;i+=200){
+    const batch=items.slice(i,i+200);
+    hint.textContent=`Géocodage de ${Math.min(i+200,items.length)}/${items.length} adresses...`; hint.classList.add("show");
+    try{
+      const lines=["id,adresse",...batch.map(x=>`${x.siret},"${x.adresse}"`)];
+      const fd=new FormData();
+      fd.append("data",new Blob([lines.join("\n")],{type:"text/csv"}),"a.csv");
+      fd.append("columns","adresse");
+      fd.append("result_columns","result_latitude");
+      fd.append("result_columns","result_longitude");
+      fd.append("result_columns","result_score");
+      const res=await fetch("https://api-adresse.data.gouv.fr/search/csv/",{method:"POST",body:fd});
+      const text=await res.text();
+      const lignes=text.trim().split("\n");
+      if(lignes.length>=2){
+        const h=parseCSV(lignes[0]);
+        const iId=h.indexOf("id"),iLat=h.findIndex(x=>x.includes("latitude"));
+        const iLon=h.findIndex(x=>x.includes("longitude")),iScr=h.findIndex(x=>x.includes("score"));
+        if(iId>=0&&iLat>=0&&iLon>=0){
+          lignes.slice(1).forEach(line=>{
+            if(!line.trim()) return;
+            const c=parseCSV(line);
+            const siret=(c[iId]||"").trim();
+            const lat=parseFloat(c[iLat]),lon=parseFloat(c[iLon]),score=parseFloat(c[iScr]);
+            if(siret&&!isNaN(lat)&&!isNaN(lon)&&score>0.5){ S.geoCache[siret]={pos:[lat,lon],score}; total++; }
+          });
+        }
+      }
+    }catch(e){}
+  }
+  await saveGeoCache(S.geoCache);
+  render();
   hint.classList.remove("show");
+  return total;
 }
 
 function parseCSV(line){
@@ -1466,13 +1480,32 @@ async function lancerTournee(){
     S.tourCircle=L.circle([lat,lon],{radius:radiusM,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:.08,weight:2,dashArray:"5,5",interactive:false}).addTo(S.map);
     S.tourMarker=L.circleMarker([lat,lon],{radius:7,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:1,weight:2,interactive:false}).addTo(S.map).bindTooltip(label);
 
-    stEl.innerHTML='<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Géocodage des entreprises du secteur...';
-    await geocodeVisibles();
+    // Candidats = entreprises des communes proches du point (marge au-delà du rayon pour couvrir les frontières de commune),
+    // indépendamment du zoom de la carte — c'est le point précis qui définit la zone, pas la vue.
+    const margeKm=Math.max(3,radiusM/1000+2);
+    const communesProches=new Set(
+      Object.entries(S.communes)
+        .filter(([code,c])=>haversineKm(lat,lon,c.lat,c.lon)<=margeKm)
+        .map(([code])=>code)
+    );
+    if(feat.properties.citycode) communesProches.add(feat.properties.citycode);
+    let candidats=S.rows.filter(r=>communesProches.has(r.insee));
+    if(S.selNAF.size>0) candidats=candidats.filter(r=>S.selNAF.has(r.naf));
 
-    const candidats=S.rows.filter(r=>{
-      if(S.selNAF.size>0&&!S.selNAF.has(r.naf)) return false;
-      return true;
-    });
+    const manquants=candidats.filter(r=>!S.geoCache[r.siret]);
+    const MAX_SANS_NAF=250;
+    if(S.selNAF.size===0 && manquants.length>MAX_SANS_NAF){
+      stEl.innerHTML=`${manquants.length} adresses à géocoder dans le secteur — trop pour un coup sans filtre.<br>Sélectionne un secteur d'activité (ex : boulangerie) pour affiner, puis relance.`;
+      btn.disabled=false;
+      return;
+    }
+    if(manquants.length){
+      await geocodeBatch(manquants.map(r=>{
+        const full=findFull(r.siret);
+        return {siret:r.siret,adresse:String(full?.Adresse||"").replace(/"/g,"'").replace(/,/g," ").trim()};
+      }).filter(x=>x.adresse));
+    }
+
     const results=[];
     candidats.forEach(r=>{
       const geo=S.geoCache[r.siret]; if(!geo) return;
