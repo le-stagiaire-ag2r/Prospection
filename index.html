@@ -545,9 +545,11 @@ document.addEventListener("DOMContentLoaded",()=>{
   S.map.on("zoomend",()=>{ if(S.full&&S.cpInsee) renderGeoVisibles(); });
   S.map.on("moveend",()=>{ if(S.full) scheduleGeo(); });
   restaurerFiltres();
-  tryReopenFile();
   initKeyboard();
   checkLSSize();
+  // Charger data_mel.json automatiquement s'il est sur le même serveur
+  tryAutoLoad();
+  tryReopenFile();
 });
 
 async function loadCommunes(){
@@ -592,6 +594,69 @@ async function idbGet(store,key){ try{ const db=await openIDB(); return new Prom
 // Geocache dans IndexedDB (pas de limite 5MB)
 async function loadGeoCache(){ return (await idbGet("geocode","all"))||{}; }
 async function saveGeoCache(d){ await idbPut("geocode","all",d); }
+
+async function tryAutoLoad(){
+  // Charge data_mel.json automatiquement s'il est à côté du HTML
+  if(window.location.protocol==="file:") return;
+  try{
+    const base=window.location.href.split("?")[0].replace(/\/[^\/]*$","/");
+    const url=base+"data_mel.json";
+    showLoading("Chargement automatique…","data_mel.json",10);
+    const res=await fetch(url,{cache:"default"});
+    if(!res.ok){ hideLoading(); return; }
+    showLoading("Téléchargement…","",40);
+    const text=await res.text();
+    showLoading("Indexation des données…","",70);
+    // Parser directement sans repasser par File
+    const data=JSON.parse(text);
+    S.rows=[]; S.comSirets={}; S.nafCounts={}; S.full=[];
+    if(data.h&&data.d){
+      const h=data.h;
+      const g=(k1,k2)=>Math.max(h.indexOf(k1),k2?h.indexOf(k2):-1);
+      const iS=g("s","siret"),iI=g("i","insee"),iF=g("f","naf");
+      const iN=g("n","nom"),iA=g("a","adresse"),iD=g("d","dir");
+      const iR=g("r","role"),iE=g("e","eff"),iCp=g("cp",""),iC=g("c","commune"),iAct=g("act","activite");
+      data.d.forEach(row=>{
+        const siret=(iS>=0?row[iS]||"":"").trim();
+        const insee=(iI>=0?row[iI]||"":"").trim();
+        const naf=(iF>=0?row[iF]||"":"").trim();
+        if(!siret||!insee||!naf) return;
+        S.rows.push({siret,insee,naf});
+        S.nafCounts[naf]=(S.nafCounts[naf]||0)+1;
+        if(!S.comSirets[insee]) S.comSirets[insee]=[];
+        S.comSirets[insee].push(siret);
+        S.full.push({
+          SIRET_etablissement:siret,
+          Nom:iN>=0?(row[iN]||""):"",
+          Adresse:iA>=0?(row[iA]||""):"",
+          Code_postal:iCp>=0?(row[iCp]||""):"",
+          Commune:iC>=0?(row[iC]||""):"",
+          Code_INSEE:insee, Code_NAF:naf,
+          Activite:iAct>=0?(row[iAct]||""):(NAF_LABELS[naf]||""),
+          Dirigeant_Nom:iD>=0?(row[iD]||""):"",
+          Dirigeant_Role:iR>=0?(row[iR]||""):"",
+          Effectif_tranche_libelle:iE>=0?(row[iE]||""):"",
+        });
+      });
+    }
+    S.geoCache=await loadGeoCache();
+    // Attendre que les communes soient chargées
+    let tries=0;
+    while(Object.keys(S.communes).length===0&&tries<20){
+      await new Promise(r=>setTimeout(r,300)); tries++;
+    }
+    buildSecTree(); render();
+    document.getElementById("nafSearch").disabled=false;
+    document.getElementById("globalSearch").disabled=false;
+    document.getElementById("btnExport").style.display="block";
+    document.getElementById("fileLbl").textContent="✅ data_mel.json";
+    hideLoading();
+    toast("✅ "+S.rows.length.toLocaleString("fr-FR")+" entreprises chargées");
+  }catch(e){
+    hideLoading();
+    console.warn("Auto-load échoué:",e.message);
+  }
+}
 
 async function tryReopenFile(){
   if(!window.showOpenFilePicker) return;
