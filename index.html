@@ -613,7 +613,7 @@ async function tryAutoLoad(){
     showLoading("Indexation des données...","",70);
     // Parser directement sans repasser par File
     const data=JSON.parse(text);
-    S.rows=[]; S.comSirets={}; S.nafCounts={}; S.full=[];
+    S.rows=[]; S.comSirets={}; S.nafCounts={}; S.full=[]; S.fullIndex=null;
     if(data.h&&data.d){
       const h=data.h;
       const g=(k1,k2)=>Math.max(h.indexOf(k1),k2?h.indexOf(k2):-1);
@@ -732,8 +732,7 @@ async function chargerJSON(file){
   showLoading("Parsing...","",55);
   const data=JSON.parse(text);
   showLoading("Indexation...","",75);
-  S.rows=[]; S.comSirets={}; S.nafCounts={}; S.full=[];
-
+  S.rows=[]; S.comSirets={}; S.nafCounts={}; S.full=[]; S.fullIndex=null;
   // Support format compact (tableau de tableaux) ET format objet classique
   if(data.h&&data.d){
     // Format optimisé v5 : {h:[headers], d:[[vals],...]}
@@ -798,7 +797,7 @@ async function chargerExcel(file){
     if(cell) header[cell.v]=c;
   }
   const gv=(r,col)=>{ const cell=ws[XLSX.utils.encode_cell({r,c:header[col]??-1})]; return cell?String(cell.v).replace(".0","").trim():""; };
-  S.rows=[]; S.comSirets={}; S.nafCounts={}; S.full=null;
+  S.rows=[]; S.comSirets={}; S.nafCounts={}; S.full=null; S.fullIndex=null;
   for(let r=range.s.r+1;r<=range.e.r;r++){
     const siret=gv(r,"SIRET_etablissement")||gv(r,"SIRET");
     const insee=gv(r,"Code_INSEE");
@@ -822,14 +821,24 @@ async function chargerFull(){
     const sn=wb.SheetNames.includes("Toutes_entreprises")?"Toutes_entreprises":wb.SheetNames[0];
     showLoading("Indexation...","",80);
     S.full=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:""});
+    S.fullIndex=null;
     hideLoading();
     return true;
   }catch(e){ hideLoading(); alert("Erreur : "+e.message); return false; }
 }
 
+function buildFullIndex(){
+  S.fullIndex=new Map();
+  if(!S.full) return;
+  S.full.forEach(r=>{
+    const siret=String(r.SIRET_etablissement||r.SIRET||"").replace(".0","").trim();
+    if(siret) S.fullIndex.set(siret,r);
+  });
+}
 function findFull(siret){
   if(!S.full) return null;
-  return S.full.find(r=>String(r.SIRET_etablissement||r.SIRET||"").replace(".0","").trim()===siret)||null;
+  if(!S.fullIndex) buildFullIndex();
+  return S.fullIndex.get(siret)||null;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -842,6 +851,15 @@ function scheduleGeo(){
 
 async function geocodeVisibles(){
   if(!S.full) return;
+  if(S._geoBusy) return;
+  S._geoBusy=true;
+  try{
+    await geocodeVisiblesInner();
+  } finally {
+    S._geoBusy=false;
+  }
+}
+async function geocodeVisiblesInner(){
   const bounds=S.map.getBounds().pad(0.3);
   const aGeo=[];
   S.rows.forEach(r=>{
