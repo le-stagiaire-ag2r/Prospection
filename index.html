@@ -14,7 +14,7 @@
   --sans:"Inter","Segoe UI",system-ui,sans-serif;
   --mono:"IBM Plex Mono",Consolas,monospace;
   --r:8px;
-} 
+}
 *{box-sizing:border-box;margin:0;padding:0;}
 .ic{width:13px;height:13px;vertical-align:-2px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;margin-right:2px;}
 .ic-lg{width:15px;height:15px;}
@@ -66,6 +66,11 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);height:100
 .sec-h .pct{font-family:var(--mono);font-size:9px;color:#22c55e;}
 .codes{display:none;}.codes.open{display:block;}
 .cr{display:flex;align-items:center;padding:6px 11px 6px 20px;cursor:pointer;font-size:11.5px;border-bottom:1px solid #f0f4f6;gap:5px;}
+.cmr{display:flex;align-items:center;padding:5px 8px;cursor:pointer;font-size:11.5px;border-bottom:1px solid #f0f4f6;gap:6px;}
+.cmr:hover{background:#f5faff;}
+.cmr input{flex-shrink:0;cursor:pointer;}
+.cmr .cmn{flex:1;}
+.cmr .cmc{font-family:var(--mono);font-size:9.5px;color:#aaa;}
 .cr:hover{background:#f5faff;}.cr.active{background:var(--ac-l);font-weight:600;color:var(--ac-d);}
 .cr .nc{font-family:var(--mono);font-size:9.5px;color:var(--ac-d);flex-shrink:0;}
 .cr .nl{flex:1;line-height:1.3;}.cr .nb{font-family:var(--mono);font-size:9.5px;color:#aaa;}
@@ -293,6 +298,14 @@ tbody td{padding:6px 9px;vertical-align:middle;}
       <button class="r-clr" id="rayClr" style="display:none" onclick="effacerRayon()">✕ Effacer</button>
     </div>
     <div class="rayon" style="border-top:1px solid var(--line)">
+      <div class="r-lbl"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> Communes spécifiques</div>
+      <div style="font-size:10px;color:var(--ink-s);line-height:1.4;margin-bottom:5px">Sans cercle approximatif : choisis exactement les communes à couvrir (utile pour combiner plusieurs villes précisément).</div>
+      <input type="text" id="communesSearch" placeholder="Filtrer les communes..." style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);margin-bottom:5px" oninput="onCommunesSearch(this.value)">
+      <div id="communesListBox" style="max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--r)"></div>
+      <div style="font-size:10px;color:#7c3aed;margin-top:3px" id="communesPinsInfo"></div>
+      <button class="r-clr" id="communesClr" style="display:none" onclick="effacerCommunesSel()">✕ Effacer la sélection</button>
+    </div>
+    <div class="rayon" style="border-top:1px solid var(--line)">
       <div class="r-lbl"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Tournée terrain</div>
       <input type="text" id="tourAddr" placeholder="Adresse du RDV, ex : 12 rue Nationale, Lille" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);margin-bottom:5px" onkeydown="if(event.key==='Enter')lancerTournee()">
       <div class="rayon-row">
@@ -488,6 +501,7 @@ const S = {
   tour:null,       // {point:{lat,lon},radiusM,results:[],label}
   tourCircle:null, tourMarker:null, tourMarkers:{}, tourSirets:null,
   rayonMarkers:{}, rayonPinsActive:false,
+  communesSelect:new Set(), communesMarkers:{}, communesPinsActive:false, communesListe:[],
   ltSelected:new Set(),
   geoCache:{},   // siret→[lat,lon]
   _geoTimer:null,
@@ -557,6 +571,7 @@ function sauvegarderFiltres(){
   p.rayVille=document.getElementById("rayVille").value;
   p.rayKm=document.getElementById("rayKm").value;
   p.sfActive=[...S.sfActive];
+  p.communesSelect=[...S.communesSelect];
   savePrefs(p);
 }
 
@@ -660,6 +675,69 @@ function peuplerRayon(data){
   data.forEach(c=>(c.codesPostaux||[c.code]).forEach(cp=>e.push({label:`${cp} (${c.nom})`,cp,nom:c.nom,code:c.code})));
   e.sort((a,b)=>a.cp.localeCompare(b.cp));
   e.forEach(x=>{const o=document.createElement("option");o.value=`${x.code}|${x.nom}|${x.cp}`;o.textContent=x.label;sel.appendChild(o);});
+
+  S.communesListe=data.map(c=>({code:c.code,nom:c.nom})).sort((a,b)=>a.nom.localeCompare(b.nom,"fr"));
+  renderCommunesList();
+}
+
+function renderCommunesList(filtre){
+  const box=document.getElementById("communesListBox");
+  const nf=filtre?norm(filtre):"";
+  const liste=nf?S.communesListe.filter(c=>norm(c.nom).includes(nf)):S.communesListe;
+  box.innerHTML=liste.map(c=>`<label class="cmr"><input type="checkbox" ${S.communesSelect.has(c.code)?"checked":""} onchange="toggleCommuneSel('${c.code}')"><span class="cmn">${c.nom}</span></label>`).join("")||"<div style='padding:10px;font-size:11px;color:var(--ink-s)'>Aucune commune.</div>";
+}
+function onCommunesSearch(v){ renderCommunesList(v); }
+window.onCommunesSearch=onCommunesSearch;
+
+function toggleCommuneSel(code){
+  if(S.communesSelect.has(code)) S.communesSelect.delete(code); else S.communesSelect.add(code);
+  document.getElementById("communesClr").style.display=S.communesSelect.size?"block":"none";
+  renderCommunesPins(); render(); sauvegarderFiltres();
+}
+window.toggleCommuneSel=toggleCommuneSel;
+
+function effacerCommunesSel(){
+  S.communesSelect.clear();
+  document.getElementById("communesClr").style.display="none";
+  renderCommunesList(document.getElementById("communesSearch").value);
+  renderCommunesPins(); render(); sauvegarderFiltres();
+}
+window.effacerCommunesSel=effacerCommunesSel;
+
+// Points individuels pour la sélection multi-communes — pas de cercle, pas d'approximation :
+// exactement les entreprises des communes cochées. Même garde-fou d'affichage que le rayon géographique.
+const MAX_PINS_COMMUNES=4000;
+function renderCommunesPins(){
+  Object.values(S.communesMarkers).forEach(m=>S.map.removeLayer(m));
+  S.communesMarkers={};
+  S.communesPinsActive=false;
+  const infoEl=document.getElementById("communesPinsInfo");
+  if(!S.communesSelect.size || S.selNAF.size===0){
+    if(infoEl) infoEl.textContent=S.communesSelect.size&&S.selNAF.size===0?"Sélectionne un secteur d'activité pour afficher les points.":"";
+    return;
+  }
+  const candidats=S.rows.filter(r=>S.communesSelect.has(r.insee)&&S.selNAF.has(r.naf));
+  const geocodees=candidats.filter(r=>S.geoCache[r.siret]);
+  if(geocodees.length>MAX_PINS_COMMUNES){
+    if(infoEl) infoEl.textContent=`${geocodees.length.toLocaleString("fr-FR")} entreprises géocodées — trop pour afficher chaque point (limite ${MAX_PINS_COMMUNES.toLocaleString("fr-FR")}). Affine le secteur.`;
+    return;
+  }
+  if(!geocodees.length){
+    if(infoEl) infoEl.textContent=candidats.length?"Aucune de ces entreprises n'est encore géocodée.":"Aucune entreprise pour cette combinaison.";
+    return;
+  }
+  const suivi=loadSuivi();
+  geocodees.forEach(r=>{
+    const geo=S.geoCache[r.siret];
+    const st=ST[suivi[r.siret]?.statut||""]||ST[""];
+    const mk=L.circleMarker(geo.pos,{radius:5,color:darken(st.mc),fillColor:st.mc,fillOpacity:.9,weight:1.3}).addTo(S.map);
+    const full=findFull(r.siret);
+    mk.bindTooltip(full?.Nom||"—",{direction:"top"});
+    mk.on("click",e=>{ L.DomEvent.stopPropagation(e); ouvrirModal(r.siret); });
+    S.communesMarkers[r.siret]=mk;
+  });
+  S.communesPinsActive=true;
+  if(infoEl) infoEl.textContent=`${geocodees.length.toLocaleString("fr-FR")} points affichés sur ${S.communesSelect.size} commune${S.communesSelect.size>1?"s":""} (sur ${candidats.length.toLocaleString("fr-FR")} au total).`;
 }
 // ════════════════════════════════════════════════════════════════
 // MÉMORISATION FICHIER (File System Access API)
@@ -1273,7 +1351,7 @@ function render(){
     const c=S.communes[insee]; if(!c) return;
     const radius=4+Math.sqrt(n/Math.max(maxC,1))*40;
     const {color,opacity,contacted,total}=getCommuneColor(insee);
-    const dimmed=!!S.tour||S.rayonPinsActive;
+    const dimmed=!!S.tour||S.rayonPinsActive||S.communesPinsActive;
     const marker=L.circleMarker([c.lat,c.lon],{radius,fillColor:color,color:darken(color),weight:1.5,fillOpacity:dimmed?0.05:opacity,opacity:dimmed?0.12:1,interactive:!dimmed});
     // Label % si contactés et assez zoomé
     if(zoom>=11&&contacted>0&&!dimmed){
@@ -1610,7 +1688,7 @@ function onNafSearch(q){
 }
 function selNAF(code,label){
   if(S.selNAF.has(code)) S.selNAF.delete(code); else S.selNAF.add(code);
-  updateChips(); updateActiveNAF(); renderRayonPins(); render(); sauvegarderFiltres();
+  updateChips(); updateActiveNAF(); renderRayonPins(); renderCommunesPins(); render(); sauvegarderFiltres();
   if(S.tour) recalculerTournee();
 }
 function updateChips(){
@@ -1623,7 +1701,7 @@ function updateChips(){
   }).join("");
 }
 function updateActiveNAF(){ document.querySelectorAll(".cr,.sr-row").forEach(r=>r.classList.toggle("active",S.selNAF.has(r.dataset.code))); }
-function removeNAF(code){ S.selNAF.delete(code); updateChips(); updateActiveNAF(); renderRayonPins(); render(); sauvegarderFiltres(); if(S.tour) recalculerTournee(); }
+function removeNAF(code){ S.selNAF.delete(code); updateChips(); updateActiveNAF(); renderRayonPins(); renderCommunesPins(); render(); sauvegarderFiltres(); if(S.tour) recalculerTournee(); }
 window.removeNAF=removeNAF;
 
 function updateSectionCounts(){
