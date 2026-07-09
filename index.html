@@ -308,6 +308,17 @@ tbody td{padding:6px 9px;vertical-align:middle;}
         <button class="r-clr" id="tourClr" style="display:none" onclick="effacerTournee()">✕ Effacer</button>
       </div>
     </div>
+    <div class="rayon" style="border-top:1px solid var(--line)">
+      <div class="r-lbl"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> Pré-géocodage complet</div>
+      <div style="font-size:10.5px;color:var(--ink-s);line-height:1.4;margin-bottom:6px" id="geoJobDesc">Géocode toute la base une fois pour toutes en arrière-plan, pour que carte et tournées soient instantanées ensuite.</div>
+      <div class="pb" id="geoJobBarWrap" style="display:none;margin-bottom:5px"><div class="pf" id="geoJobBar" style="width:0%;background:var(--ac)"></div></div>
+      <div class="r-st" id="geoJobSt"></div>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <button class="btn btn-p" id="btnGeoStart" onclick="demarrerPreGeocodage()" style="flex:1;justify-content:center">Démarrer</button>
+        <button class="btn btn-g" id="btnGeoPause" onclick="togglePausePreGeocodage()" style="display:none;flex:1;justify-content:center">Pause</button>
+        <button class="btn btn-g" id="btnGeoCancel" onclick="annulerPreGeocodage()" style="display:none;flex:1;justify-content:center">Arrêter</button>
+      </div>
+    </div>
   </div>
 
   <!-- Vue Carte -->
@@ -471,6 +482,7 @@ const S = {
   ltSelected:new Set(),
   geoCache:{},   // siret→[lat,lon]
   _geoTimer:null,
+  geoJob:{running:false,paused:false,cancelled:false,total:0,done:0,ok:0},
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -654,7 +666,17 @@ function openIDB(){
     r.onsuccess=e=>res(e.target.result); r.onerror=rej;
   });
 }
-async function idbPut(store,key,val){ try{ const db=await openIDB(); const tx=db.transaction(store,"readwrite"); tx.objectStore(store).put(val,key); }catch(e){} }
+function idbPut(store,key,val){
+  return openIDB().then(db=>new Promise((resolve,reject)=>{
+    try{
+      const tx=db.transaction(store,"readwrite");
+      tx.objectStore(store).put(val,key);
+      tx.oncomplete=()=>resolve(true);
+      tx.onerror=()=>reject(tx.error);
+      tx.onabort=()=>reject(tx.error);
+    }catch(e){ reject(e); }
+  })).catch(e=>{ console.error("[idbPut] échec d'écriture:",e); return false; });
+}
 async function idbGet(store,key){ try{ const db=await openIDB(); return new Promise((res,rej)=>{ const r=db.transaction(store,"readonly").objectStore(store).get(key); r.onsuccess=e=>res(e.target.result); r.onerror=rej; }); }catch(e){ return null; } }
 
 // Geocache dans IndexedDB (pas de limite 5MB)
@@ -932,7 +954,7 @@ async function geocodeVisiblesInner(){
     if(!bounds.contains([c.lat,c.lon])) return;
     if(S.geoCache[r.siret]) return;
     const full=findFull(r.siret); if(!full||!full.Adresse) return;
-    aGeo.push({siret:r.siret,adresse:String(full.Adresse||"").replace(/"/g,"'").replace(/,/g," ").trim()});
+    aGeo.push({siret:r.siret,adresse:nettoyerAdresse(full.Adresse)});
   });
   if(!aGeo.length) return;
   await geocodeBatch(aGeo.slice(0,200));
@@ -947,52 +969,159 @@ async function geocodeBatch(items){
   for(let i=0;i<items.length;i+=200){
     const batch=items.slice(i,i+200);
     hint.textContent=`Géocodage de ${Math.min(i+200,items.length)}/${items.length} adresses...`; hint.classList.add("show");
-    try{
-      const lines=["id,adresse",...batch.map(x=>`${x.siret},"${x.adresse}"`)];
-      const fd=new FormData();
-      fd.append("data",new Blob([lines.join("\n")],{type:"text/csv"}),"a.csv");
-      fd.append("columns","adresse");
-      fd.append("result_columns","result_latitude");
-      fd.append("result_columns","result_longitude");
-      fd.append("result_columns","result_score");
-      const res=await fetch("https://api-adresse.data.gouv.fr/search/csv/",{method:"POST",body:fd});
-      console.log("[geocodeBatch] statut HTTP:",res.status,res.ok);
-      const text=await res.text();
-      console.log("[geocodeBatch] aperçu réponse (300 car.):",text.slice(0,300));
-      const lignes=text.trim().split("\n");
-      console.log("[geocodeBatch] nb lignes reçues:",lignes.length,"pour",batch.length,"envoyées");
-      if(lignes.length>=2){
-        const h=parseCSV(lignes[0]);
-        const iId=h.indexOf("id"),iLat=h.findIndex(x=>x.includes("latitude"));
-        const iLon=h.findIndex(x=>x.includes("longitude")),iScr=h.findIndex(x=>x.includes("score"));
-        console.log("[geocodeBatch] colonnes détectées:",h,"→ id:",iId,"lat:",iLat,"lon:",iLon,"score:",iScr);
-        if(iId>=0&&iLat>=0&&iLon>=0){
-          let ok=0,rejetesScore=0,rejetesNaN=0;
-          lignes.slice(1).forEach(line=>{
-            if(!line.trim()) return;
-            const c=parseCSV(line);
-            const siret=(c[iId]||"").trim();
-            const lat=parseFloat(c[iLat]),lon=parseFloat(c[iLon]),score=parseFloat(c[iScr]);
-            if(!siret||isNaN(lat)||isNaN(lon)){ rejetesNaN++; return; }
-            if(!(score>0.5)){ rejetesScore++; return; }
-            S.geoCache[siret]={pos:[lat,lon],score}; total++; ok++;
-          });
-          console.log("[geocodeBatch] résultat: ok=",ok,"rejetés (score<0.5)=",rejetesScore,"rejetés (NaN/vide)=",rejetesNaN);
-        } else {
-          console.warn("[geocodeBatch] colonnes id/lat/lon introuvables dans la réponse !");
-        }
-      } else {
-        console.warn("[geocodeBatch] réponse trop courte / vide, la requête a probablement échoué côté serveur.");
-      }
-    }catch(e){
-      console.error("[geocodeBatch] exception réseau/parsing:",e);
-    }
+    total+=await geocodeChunk(batch);
   }
   await saveGeoCache(S.geoCache);
   render();
   hint.classList.remove("show");
   return total;
 }
+
+// Géocode un unique lot (≤200 adresses). Écrit directement dans S.geoCache. Ne sauvegarde ni ne redessine
+// (à la charge de l'appelant, pour permettre des boucles longues sans surcoût à chaque lot).
+// Nettoie une adresse avant envoi au géocodeur : neutralise guillemets, virgules et retours à la ligne
+// (un retour à la ligne parasite dans les données casserait le format CSV envoyé et décalerait les résultats).
+function nettoyerAdresse(s){
+  return String(s||"").replace(/[\r\n]+/g," ").replace(/"/g,"'").replace(/,/g," ").replace(/\s+/g," ").trim();
+}
+
+async function geocodeChunk(batch){
+  let ok=0;
+  try{
+    const lines=["id,adresse",...batch.map(x=>`${x.siret},"${x.adresse}"`)];
+    const fd=new FormData();
+    fd.append("data",new Blob([lines.join("\n")],{type:"text/csv"}),"a.csv");
+    fd.append("columns","adresse");
+    fd.append("result_columns","latitude");
+    fd.append("result_columns","longitude");
+    fd.append("result_columns","result_score");
+    const res=await fetch("https://api-adresse.data.gouv.fr/search/csv/",{method:"POST",body:fd});
+    const text=await res.text();
+    const lignes=text.trim().split("\n");
+    if(lignes.length>=2){
+      const h=parseCSV(lignes[0]);
+      const iId=h.indexOf("id"),iLat=h.findIndex(x=>x.includes("latitude"));
+      const iLon=h.findIndex(x=>x.includes("longitude")),iScr=h.findIndex(x=>x.includes("score"));
+      if(iId>=0&&iLat>=0&&iLon>=0){
+        lignes.slice(1).forEach(line=>{
+          if(!line.trim()) return;
+          const c=parseCSV(line);
+          const siret=(c[iId]||"").trim();
+          const lat=parseFloat(c[iLat]),lon=parseFloat(c[iLon]),score=parseFloat(c[iScr]);
+          if(siret&&!isNaN(lat)&&!isNaN(lon)&&score>0.5){ S.geoCache[siret]={pos:[lat,lon],score}; ok++; }
+        });
+      }
+    }
+  }catch(e){
+    console.error("[geocodeChunk] exception:",e);
+  }
+  return ok;
+}
+
+// ════════════════════════════════════════════════════════════════
+// PRÉ-GÉOCODAGE COMPLET (toute la base, en arrière-plan, avec pause/reprise/annulation)
+// ════════════════════════════════════════════════════════════════
+function pause(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function updateGeoJobUI(){
+  const j=S.geoJob;
+  const barWrap=document.getElementById("geoJobBarWrap");
+  const bar=document.getElementById("geoJobBar");
+  const st=document.getElementById("geoJobSt");
+  const btnStart=document.getElementById("btnGeoStart");
+  const btnPause=document.getElementById("btnGeoPause");
+  const btnCancel=document.getElementById("btnGeoCancel");
+  if(j.running){
+    barWrap.style.display="block";
+    const pct=j.total>0?Math.round(j.done/j.total*100):0;
+    bar.style.width=pct+"%";
+    st.textContent=`${j.done.toLocaleString("fr-FR")} / ${j.total.toLocaleString("fr-FR")} (${pct}%) · ${j.ok.toLocaleString("fr-FR")} géocodées`;
+    btnStart.style.display="none";
+    btnPause.style.display="flex"; btnPause.textContent=j.paused?"Reprendre":"Pause";
+    btnCancel.style.display="flex";
+  } else {
+    btnStart.style.display="flex";
+    btnPause.style.display="none";
+    btnCancel.style.display="none";
+    if(j.total>0 && j.done>=j.total){
+      barWrap.style.display="block"; bar.style.width="100%";
+      st.textContent=`Terminé · ${j.ok.toLocaleString("fr-FR")} / ${j.total.toLocaleString("fr-FR")} géocodées`;
+    } else if(j.cancelled){
+      st.textContent=`Arrêté · ${j.done.toLocaleString("fr-FR")} / ${j.total.toLocaleString("fr-FR")} traitées`;
+    }
+  }
+}
+
+async function demarrerPreGeocodage(){
+  if(S.geoJob.running){ toast("Un pré-géocodage est déjà en cours."); return; }
+  if(!S.rows.length){ toast("Charge d'abord un fichier."); return; }
+  if(!S.full){ const ok=await chargerFull(); if(!ok) return; }
+
+  // On ne compte comme "à traiter" que les entreprises ayant une adresse exploitable —
+  // sinon celles sans adresse resteraient éternellement comptées comme "manquantes".
+  const items=[];
+  S.rows.forEach(r=>{
+    if(S.geoCache[r.siret]) return;
+    const full=findFull(r.siret);
+    const adresse=nettoyerAdresse(full?.Adresse);
+    if(!adresse) return;
+    items.push({siret:r.siret,adresse});
+  });
+
+  if(!items.length){
+    document.getElementById("geoJobSt").textContent="Toute la base géocodable est déjà à jour.";
+    return;
+  }
+  if(items.length>3000){
+    const estimMin=Math.ceil(items.length/200*3.5/60*10)/10;
+    if(!confirm(`${items.length.toLocaleString("fr-FR")} adresses à géocoder — environ ${estimMin} min. Lancer le pré-géocodage complet en arrière-plan ? Tu peux mettre en pause à tout moment.`)) return;
+  }
+  S.geoJob={running:true,paused:false,cancelled:false,total:items.length,done:0,ok:0};
+  updateGeoJobUI();
+
+  let chunkIdx=0;
+  let echecsConsecutifs=0;
+  for(let i=0;i<items.length;i+=200){
+    if(S.geoJob.cancelled) break;
+    while(S.geoJob.paused && !S.geoJob.cancelled){ await pause(400); }
+    if(S.geoJob.cancelled) break;
+    const batch=items.slice(i,i+200);
+    const ok=await geocodeChunk(batch);
+    S.geoJob.done+=batch.length;
+    S.geoJob.ok+=ok;
+    if(ok===0 && batch.length>0){
+      echecsConsecutifs++;
+      if(echecsConsecutifs>=3){
+        document.getElementById("geoJobSt").textContent=`Ralentissement — l'API semble saturée, pause de 10s (lot ${chunkIdx+1})...`;
+        await pause(10000);
+      }
+    } else {
+      echecsConsecutifs=0;
+    }
+    updateGeoJobUI();
+    chunkIdx++;
+    if(chunkIdx%5===0){ await saveGeoCache(S.geoCache); render(); }
+    await pause(300); // marge de respect envers l'API gratuite
+  }
+  await saveGeoCache(S.geoCache);
+  render();
+  S.geoJob.running=false;
+  updateGeoJobUI();
+  if(!S.geoJob.cancelled) toast(`Pré-géocodage terminé : ${S.geoJob.ok.toLocaleString("fr-FR")} entreprises géolocalisées.`);
+}
+window.demarrerPreGeocodage=demarrerPreGeocodage;
+
+function togglePausePreGeocodage(){
+  S.geoJob.paused=!S.geoJob.paused;
+  updateGeoJobUI();
+}
+window.togglePausePreGeocodage=togglePausePreGeocodage;
+
+function annulerPreGeocodage(){
+  S.geoJob.cancelled=true;
+  S.geoJob.paused=false;
+}
+window.annulerPreGeocodage=annulerPreGeocodage;
 
 function parseCSV(line){
   const cols=[]; let cur="",inQ=false;
@@ -1517,7 +1646,7 @@ async function lancerTournee(){
     if(manquants.length){
       const aGeoc=manquants.map(r=>{
         const full=findFull(r.siret);
-        return {siret:r.siret,adresse:String(full?.Adresse||"").replace(/"/g,"'").replace(/,/g," ").trim()};
+        return {siret:r.siret,adresse:nettoyerAdresse(full?.Adresse)};
       }).filter(x=>x.adresse);
       console.log("[Tournée] à géocoder:",aGeoc.length,"/ manquants:",manquants.length);
       const nbGeocodes=await geocodeBatch(aGeoc);
