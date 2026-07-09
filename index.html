@@ -956,23 +956,37 @@ async function geocodeBatch(items){
       fd.append("result_columns","result_longitude");
       fd.append("result_columns","result_score");
       const res=await fetch("https://api-adresse.data.gouv.fr/search/csv/",{method:"POST",body:fd});
+      console.log("[geocodeBatch] statut HTTP:",res.status,res.ok);
       const text=await res.text();
+      console.log("[geocodeBatch] aperçu réponse (300 car.):",text.slice(0,300));
       const lignes=text.trim().split("\n");
+      console.log("[geocodeBatch] nb lignes reçues:",lignes.length,"pour",batch.length,"envoyées");
       if(lignes.length>=2){
         const h=parseCSV(lignes[0]);
         const iId=h.indexOf("id"),iLat=h.findIndex(x=>x.includes("latitude"));
         const iLon=h.findIndex(x=>x.includes("longitude")),iScr=h.findIndex(x=>x.includes("score"));
+        console.log("[geocodeBatch] colonnes détectées:",h,"→ id:",iId,"lat:",iLat,"lon:",iLon,"score:",iScr);
         if(iId>=0&&iLat>=0&&iLon>=0){
+          let ok=0,rejetesScore=0,rejetesNaN=0;
           lignes.slice(1).forEach(line=>{
             if(!line.trim()) return;
             const c=parseCSV(line);
             const siret=(c[iId]||"").trim();
             const lat=parseFloat(c[iLat]),lon=parseFloat(c[iLon]),score=parseFloat(c[iScr]);
-            if(siret&&!isNaN(lat)&&!isNaN(lon)&&score>0.5){ S.geoCache[siret]={pos:[lat,lon],score}; total++; }
+            if(!siret||isNaN(lat)||isNaN(lon)){ rejetesNaN++; return; }
+            if(!(score>0.5)){ rejetesScore++; return; }
+            S.geoCache[siret]={pos:[lat,lon],score}; total++; ok++;
           });
+          console.log("[geocodeBatch] résultat: ok=",ok,"rejetés (score<0.5)=",rejetesScore,"rejetés (NaN/vide)=",rejetesNaN);
+        } else {
+          console.warn("[geocodeBatch] colonnes id/lat/lon introuvables dans la réponse !");
         }
+      } else {
+        console.warn("[geocodeBatch] réponse trop courte / vide, la requête a probablement échoué côté serveur.");
       }
-    }catch(e){}
+    }catch(e){
+      console.error("[geocodeBatch] exception réseau/parsing:",e);
+    }
   }
   await saveGeoCache(S.geoCache);
   render();
@@ -1506,18 +1520,22 @@ async function lancerTournee(){
         return {siret:r.siret,adresse:String(full?.Adresse||"").replace(/"/g,"'").replace(/,/g," ").trim()};
       }).filter(x=>x.adresse);
       console.log("[Tournée] à géocoder:",aGeoc.length,"/ manquants:",manquants.length);
-      await geocodeBatch(aGeoc);
+      const nbGeocodes=await geocodeBatch(aGeoc);
+      console.log("[Tournée] géocodés avec succès:",nbGeocodes,"/",aGeoc.length);
     }
 
     const results=[];
+    const distances=[];
     candidats.forEach(r=>{
       const geo=S.geoCache[r.siret]; if(!geo) return;
       const d=haversineKm(lat,lon,geo.pos[0],geo.pos[1])*1000;
+      distances.push(Math.round(d));
       if(d<=radiusM){
         const full=findFull(r.siret);
         results.push({siret:r.siret,nom:full?.Nom||"",activite:full?.Activite||full?.Code_NAF||"",distM:d});
       }
     });
+    console.log("[Tournée] candidats géocodés au total:",distances.length,"sur",candidats.length,"· distances (m):",distances.sort((a,b)=>a-b).slice(0,20));
     results.sort((a,b)=>a.distM-b.distM);
     S.tour={point:{lat,lon},radiusM,results,label};
     renderTourMarkers();
