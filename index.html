@@ -318,6 +318,12 @@ tbody td{padding:6px 9px;vertical-align:middle;}
         <button class="btn btn-g" id="btnGeoPause" onclick="togglePausePreGeocodage()" style="display:none;flex:1;justify-content:center">Pause</button>
         <button class="btn btn-g" id="btnGeoCancel" onclick="annulerPreGeocodage()" style="display:none;flex:1;justify-content:center">Arrêter</button>
       </div>
+      <div style="display:flex;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)">
+        <button class="btn btn-o" onclick="exporterGeoCache()" style="flex:1;justify-content:center"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></button>
+        <button class="btn btn-o" onclick="document.getElementById('geoCacheFile').click()" style="flex:1;justify-content:center"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M5 3h14"/></svg></button>
+        <input type="file" id="geoCacheFile" accept=".json" style="display:none" onchange="importerGeoCache(this.files[0])">
+      </div>
+      <div style="font-size:10px;color:var(--ink-s);margin-top:3px">Exporte le cache pour le partager à l'équipe (évite à chacun de re-géocoder).</div>
     </div>
   </div>
 
@@ -1122,6 +1128,47 @@ function annulerPreGeocodage(){
   S.geoJob.paused=false;
 }
 window.annulerPreGeocodage=annulerPreGeocodage;
+
+// ════════════════════════════════════════════════════════════════
+// EXPORT / IMPORT DU CACHE DE GÉOLOCALISATION (partage entre commerciaux)
+// ════════════════════════════════════════════════════════════════
+function exporterGeoCache(){
+  const nb=Object.keys(S.geoCache).length;
+  if(!nb){ toast("Aucune entreprise géocodée pour l'instant."); return; }
+  const blob=new Blob([JSON.stringify(S.geoCache)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=`geocache_mel_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast(`${nb.toLocaleString("fr-FR")} positions exportées — partage ce fichier à l'équipe.`);
+}
+window.exporterGeoCache=exporterGeoCache;
+
+async function importerGeoCache(file){
+  if(!file) return;
+  try{
+    const text=await file.text();
+    const data=JSON.parse(text);
+    if(typeof data!=="object"||data===null||Array.isArray(data)) throw new Error("Format invalide.");
+    let nb=0;
+    for(const siret in data){
+      const v=data[siret];
+      if(v&&Array.isArray(v.pos)&&v.pos.length===2&&typeof v.pos[0]==="number"&&typeof v.pos[1]==="number"){
+        S.geoCache[siret]=v; nb++;
+      }
+    }
+    if(!nb){ toast("Fichier lu mais aucune position valide trouvée dedans."); return; }
+    await saveGeoCache(S.geoCache);
+    render();
+    toast(`${nb.toLocaleString("fr-FR")} positions importées et fusionnées avec ton cache.`);
+  }catch(e){
+    console.error("[importerGeoCache]",e);
+    toast("Fichier illisible — vérifie que c'est bien un export du cache géolocalisation.");
+  }
+  document.getElementById("geoCacheFile").value="";
+}
+window.importerGeoCache=importerGeoCache;
 
 function parseCSV(line){
   const cols=[]; let cur="",inQ=false;
