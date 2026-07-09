@@ -289,6 +289,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
         <button class="btn btn-p" onclick="appliquerRayon()" style="flex-shrink:0">OK</button>
       </div>
       <div class="r-st" id="raySt"></div>
+      <div style="font-size:10px;color:#7c3aed;margin-top:2px" id="rayPinsInfo"></div>
       <button class="r-clr" id="rayClr" style="display:none" onclick="effacerRayon()">✕ Effacer</button>
     </div>
     <div class="rayon" style="border-top:1px solid var(--line)">
@@ -486,6 +487,7 @@ const S = {
   panelMode:null,  // 'commune' | 'tour'
   tour:null,       // {point:{lat,lon},radiusM,results:[],label}
   tourCircle:null, tourMarker:null, tourMarkers:{}, tourSirets:null,
+  rayonMarkers:{}, rayonPinsActive:false,
   ltSelected:new Set(),
   geoCache:{},   // siret→[lat,lon]
   _geoTimer:null,
@@ -1271,7 +1273,7 @@ function render(){
     const c=S.communes[insee]; if(!c) return;
     const radius=4+Math.sqrt(n/Math.max(maxC,1))*40;
     const {color,opacity,contacted,total}=getCommuneColor(insee);
-    const dimmed=!!S.tour;
+    const dimmed=!!S.tour||S.rayonPinsActive;
     const marker=L.circleMarker([c.lat,c.lon],{radius,fillColor:color,color:darken(color),weight:1.5,fillOpacity:dimmed?0.05:opacity,opacity:dimmed?0.12:1,interactive:!dimmed});
     // Label % si contactés et assez zoomé
     if(zoom>=11&&contacted>0&&!dimmed){
@@ -1426,6 +1428,44 @@ function renderTourMarkers(){
   });
 }
 
+// Points individuels (façon Google Maps) pour le Rayon géographique — seulement si un secteur NAF
+// est sélectionné ET que le nombre de résultats reste gérable à l'affichage (sinon on garde les bulles
+// agrégées par commune, plus légères). Ne géocode jamais rien de nouveau : n'affiche que ce qui est déjà en cache.
+const MAX_PINS_RAYON=4000;
+function renderRayonPins(){
+  Object.values(S.rayonMarkers).forEach(m=>S.map.removeLayer(m));
+  S.rayonMarkers={};
+  S.rayonPinsActive=false;
+  const rayEl=document.getElementById("rayPinsInfo");
+  if(!S.rayC || S.selNAF.size===0){
+    if(rayEl) rayEl.textContent="";
+    return;
+  }
+  const rs=getRaySet();
+  const candidats=S.rows.filter(r=>(!rs||rs.has(r.insee))&&S.selNAF.has(r.naf));
+  const geocodees=candidats.filter(r=>S.geoCache[r.siret]);
+  if(geocodees.length>MAX_PINS_RAYON){
+    if(rayEl) rayEl.textContent=`${geocodees.length.toLocaleString("fr-FR")} entreprises géocodées dans ce secteur — trop pour afficher chaque point (limite ${MAX_PINS_RAYON.toLocaleString("fr-FR")}). Les bulles par commune restent affichées.`;
+    return;
+  }
+  if(!geocodees.length){
+    if(rayEl) rayEl.textContent="";
+    return;
+  }
+  const suivi=loadSuivi();
+  geocodees.forEach(r=>{
+    const geo=S.geoCache[r.siret];
+    const st=ST[suivi[r.siret]?.statut||""]||ST[""];
+    const mk=L.circleMarker(geo.pos,{radius:5,color:darken(st.mc),fillColor:st.mc,fillOpacity:.9,weight:1.3}).addTo(S.map);
+    const full=findFull(r.siret);
+    mk.bindTooltip(full?.Nom||"—",{direction:"top"});
+    mk.on("click",e=>{ L.DomEvent.stopPropagation(e); ouvrirModal(r.siret); });
+    S.rayonMarkers[r.siret]=mk;
+  });
+  S.rayonPinsActive=true;
+  if(rayEl) rayEl.textContent=`${geocodees.length.toLocaleString("fr-FR")} points affichés (sur ${candidats.length.toLocaleString("fr-FR")} au total dans le secteur).`;
+}
+
 function cpSetStatut(siret,sel){
   setStatut(siret,sel.value);
   const st=ST[sel.value]||ST[""];
@@ -1570,7 +1610,7 @@ function onNafSearch(q){
 }
 function selNAF(code,label){
   if(S.selNAF.has(code)) S.selNAF.delete(code); else S.selNAF.add(code);
-  updateChips(); updateActiveNAF(); render(); sauvegarderFiltres();
+  updateChips(); updateActiveNAF(); renderRayonPins(); render(); sauvegarderFiltres();
   if(S.tour) recalculerTournee();
 }
 function updateChips(){
@@ -1583,7 +1623,7 @@ function updateChips(){
   }).join("");
 }
 function updateActiveNAF(){ document.querySelectorAll(".cr,.sr-row").forEach(r=>r.classList.toggle("active",S.selNAF.has(r.dataset.code))); }
-function removeNAF(code){ S.selNAF.delete(code); updateChips(); updateActiveNAF(); render(); sauvegarderFiltres(); if(S.tour) recalculerTournee(); }
+function removeNAF(code){ S.selNAF.delete(code); updateChips(); updateActiveNAF(); renderRayonPins(); render(); sauvegarderFiltres(); if(S.tour) recalculerTournee(); }
 window.removeNAF=removeNAF;
 
 function updateSectionCounts(){
@@ -1637,14 +1677,14 @@ function appliquerRayon(){
   S.map.fitBounds(S.rayCircle.getBounds(),{padding:[20,20]});
   st.textContent=`${cp} ${nom} · ${km} km`; st.className="r-st ok";
   document.getElementById("rayClr").style.display="block";
-  render(); sauvegarderFiltres();
+  renderRayonPins(); render(); sauvegarderFiltres();
 }
 function effacerRayon(){
   S.rayC=null; S.rayKm=null;
   if(S.rayCircle){S.map.removeLayer(S.rayCircle);S.rayCircle=null;}
   document.getElementById("raySt").textContent=""; document.getElementById("raySt").className="r-st";
   document.getElementById("rayClr").style.display="none";
-  render(); sauvegarderFiltres();
+  renderRayonPins(); render(); sauvegarderFiltres();
 }
 window.appliquerRayon=appliquerRayon; window.effacerRayon=effacerRayon;
 
