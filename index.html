@@ -127,7 +127,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
 .rap-badge.today{background:#dcfce7;color:#166534;}.rap-badge.late{background:#fee2e2;color:#991b1b;}
 .lt-empty{padding:50px;text-align:center;color:var(--ink-s);font-size:13px;}
 
-/* ── Dashboard ── */ 
+/* ── Dashboard ── */
 .vue-dash{flex:1;flex-direction:column;overflow:hidden;display:none;min-height:0;}
 .dash-scroll{flex:1;overflow-y:auto;padding:18px;}
 .dash-ctx{font-size:11px;color:var(--ink-s);margin-bottom:14px;padding:7px 12px;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);}
@@ -1115,6 +1115,7 @@ async function demarrerPreGeocodage(){
   S.geoJob.running=false;
   updateGeoJobUI();
   if(!S.geoJob.cancelled) toast(`Pré-géocodage terminé : ${S.geoJob.ok.toLocaleString("fr-FR")} entreprises géolocalisées.`);
+  if(S.tour) recalculerTournee();
 }
 window.demarrerPreGeocodage=demarrerPreGeocodage;
 
@@ -1570,6 +1571,7 @@ function onNafSearch(q){
 function selNAF(code,label){
   if(S.selNAF.has(code)) S.selNAF.delete(code); else S.selNAF.add(code);
   updateChips(); updateActiveNAF(); render(); sauvegarderFiltres();
+  if(S.tour) recalculerTournee();
 }
 function updateChips(){
   const area=document.getElementById("chipsArea");
@@ -1581,7 +1583,7 @@ function updateChips(){
   }).join("");
 }
 function updateActiveNAF(){ document.querySelectorAll(".cr,.sr-row").forEach(r=>r.classList.toggle("active",S.selNAF.has(r.dataset.code))); }
-function removeNAF(code){ S.selNAF.delete(code); updateChips(); updateActiveNAF(); render(); sauvegarderFiltres(); }
+function removeNAF(code){ S.selNAF.delete(code); updateChips(); updateActiveNAF(); render(); sauvegarderFiltres(); if(S.tour) recalculerTournee(); }
 window.removeNAF=removeNAF;
 
 function updateSectionCounts(){
@@ -1684,7 +1686,7 @@ async function lancerTournee(){
     S.tourCircle=L.circle([lat,lon],{radius:radiusM,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:.08,weight:2,dashArray:"5,5",interactive:false}).addTo(S.map);
     S.tourMarker=L.circleMarker([lat,lon],{radius:7,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:1,weight:2,interactive:false}).addTo(S.map).bindTooltip(label);
 
-    // Candidats = entreprises des communes proches du point (marge au-delà du rayon pour couvrir les frontières de commune),
+    // Communes proches du point (marge au-delà du rayon pour couvrir les frontières de commune),
     // indépendamment du zoom de la carte — c'est le point précis qui définit la zone, pas la vue.
     const margeKm=Math.max(3,radiusM/1000+2);
     const communesProches=new Set(
@@ -1693,61 +1695,16 @@ async function lancerTournee(){
         .map(([code])=>code)
     );
     if(feat.properties.citycode) communesProches.add(feat.properties.citycode);
-    let candidats=S.rows.filter(r=>communesProches.has(r.insee));
-    if(S.selNAF.size>0) candidats=candidats.filter(r=>S.selNAF.has(r.naf));
-    console.log("[Tournée]",{point:[lat,lon],citycode:feat.properties.citycode,communesProches:[...communesProches],nbCandidats:candidats.length});
 
-    const manquants=candidats.filter(r=>!S.geoCache[r.siret]);
-    const MAX_SANS_NAF=250;
-    if(S.selNAF.size===0 && manquants.length>MAX_SANS_NAF){
-      stEl.innerHTML=`${manquants.length} adresses à géocoder dans le secteur — trop pour un coup sans filtre.<br>Sélectionne un secteur d'activité (ex : boulangerie) pour affiner, puis relance.`;
-      btn.disabled=false;
-      return;
-    }
-    if(manquants.length){
-      const aGeoc=manquants.map(r=>{
-        const full=findFull(r.siret);
-        return {siret:r.siret,adresse:nettoyerAdresse(full?.Adresse)};
-      }).filter(x=>x.adresse);
-      console.log("[Tournée] à géocoder:",aGeoc.length,"/ manquants:",manquants.length);
-      const nbGeocodes=await geocodeBatch(aGeoc);
-      console.log("[Tournée] géocodés avec succès:",nbGeocodes,"/",aGeoc.length);
-    }
-
-    const results=[];
-    const distances=[];
-    candidats.forEach(r=>{
-      const geo=S.geoCache[r.siret]; if(!geo) return;
-      const d=haversineKm(lat,lon,geo.pos[0],geo.pos[1])*1000;
-      distances.push(Math.round(d));
-      if(d<=radiusM){
-        const full=findFull(r.siret);
-        results.push({siret:r.siret,nom:full?.Nom||"",activite:full?.Activite||full?.Code_NAF||"",distM:d});
-      }
-    });
-    console.log("[Tournée] candidats géocodés au total:",distances.length,"sur",candidats.length,"· distances (m):",distances.sort((a,b)=>a-b).slice(0,20));
-    results.sort((a,b)=>a.distM-b.distM);
-    S.tour={point:{lat,lon},radiusM,results,label};
-
-    // Set de TOUTES les entreprises (tous secteurs confondus) dans le rayon, pour les compteurs de la sidebar NAF.
-    // Repose sur ce qui est déjà géocodé (le pré-géocodage complet donne la meilleure précision ici).
-    const tourSirets=new Set();
-    S.rows.forEach(r=>{
-      if(!communesProches.has(r.insee)) return;
-      const geo=S.geoCache[r.siret]; if(!geo) return;
-      if(haversineKm(lat,lon,geo.pos[0],geo.pos[1])*1000<=radiusM) tourSirets.add(r.siret);
-    });
-    S.tourSirets=tourSirets;
-
-    renderTourMarkers();
-    render();
-
-    const rayWarn=S.rayC?' <span style="color:#c2530f">· Rayon commune encore actif, pense à l\'effacer</span>':'';
-    stEl.innerHTML='<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> '+label+rayWarn;
+    // On fige le point/rayon/communes tout de suite : même si le calcul des résultats échoue ou
+    // demande à filtrer par secteur, l'affichage reste toujours cohérent avec ce qui est réellement recherché.
+    S.tour={point:{lat,lon},radiusM,communesProches:[...communesProches],label,results:[]};
+    S.tourSirets=null;
     document.getElementById("tourClr").style.display="inline-block";
     document.getElementById("tourList").style.display="inline-block";
+
+    await recalculerTournee();
     ouvrirTourPanel();
-    toast(`${results.length} entreprise${results.length>1?"s":""} trouvée${results.length>1?"s":""} dans ${radiusM} m`);
   }catch(e){
     console.error("[Tournée] erreur:",e);
     stEl.textContent="Erreur : "+e.message;
@@ -1755,6 +1712,71 @@ async function lancerTournee(){
   btn.disabled=false;
 }
 window.lancerTournee=lancerTournee;
+
+// Recalcule les résultats de la tournée active à partir du point/rayon déjà connus (aucune nouvelle
+// recherche d'adresse), en tenant compte du filtre secteur NAF courant. Appelée à la recherche initiale,
+// ET automatiquement à chaque coche/décoche d'un secteur NAF pendant qu'une tournée est active — c'est
+// ce qui permet la mise à jour en direct des points sur la carte sans retaper l'adresse.
+async function recalculerTournee(){
+  if(!S.tour||S.geoJob?.running) return; // pas de géocodage concurrent avec le pré-géocodage complet
+  const {point,radiusM,label}=S.tour;
+  const {lat,lon}=point;
+  const communesProches=new Set(S.tour.communesProches);
+  const stEl=document.getElementById("tourSt");
+
+  let candidats=S.rows.filter(r=>communesProches.has(r.insee));
+  if(S.selNAF.size>0) candidats=candidats.filter(r=>S.selNAF.has(r.naf));
+
+  const manquants=candidats.filter(r=>!S.geoCache[r.siret]);
+  const MAX_SANS_NAF=250;
+  if(S.selNAF.size===0 && manquants.length>MAX_SANS_NAF){
+    stEl.innerHTML=`${manquants.length} adresses à géocoder dans le secteur — trop pour un coup sans filtre.<br>Sélectionne un secteur d'activité (ex : boulangerie) pour affiner.`;
+    S.tour.results=[];
+    renderTourMarkers();
+    if(S.panelMode==="tour") renderPanel();
+    return;
+  }
+  if(manquants.length){
+    const aGeoc=manquants.map(r=>{
+      const full=findFull(r.siret);
+      return {siret:r.siret,adresse:nettoyerAdresse(full?.Adresse)};
+    }).filter(x=>x.adresse);
+    if(aGeoc.length){
+      stEl.textContent=`Géocodage de ${aGeoc.length} adresses...`;
+      await geocodeBatch(aGeoc);
+    }
+  }
+
+  const results=[];
+  candidats.forEach(r=>{
+    const geo=S.geoCache[r.siret]; if(!geo) return;
+    const d=haversineKm(lat,lon,geo.pos[0],geo.pos[1])*1000;
+    if(d<=radiusM){
+      const full=findFull(r.siret);
+      results.push({siret:r.siret,nom:full?.Nom||"",activite:full?.Activite||full?.Code_NAF||"",distM:d});
+    }
+  });
+  results.sort((a,b)=>a.distM-b.distM);
+  S.tour.results=results;
+
+  // Comptage tous secteurs confondus (indépendant du filtre NAF courant), pour les compteurs de la sidebar.
+  const tourSirets=new Set();
+  S.rows.forEach(r=>{
+    if(!communesProches.has(r.insee)) return;
+    const geo=S.geoCache[r.siret]; if(!geo) return;
+    if(haversineKm(lat,lon,geo.pos[0],geo.pos[1])*1000<=radiusM) tourSirets.add(r.siret);
+  });
+  S.tourSirets=tourSirets;
+
+  renderTourMarkers();
+  render();
+
+  const rayWarn=S.rayC?' <span style="color:#c2530f">· Rayon commune encore actif, pense à l\'effacer</span>':'';
+  stEl.innerHTML='<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> '+label+rayWarn;
+  if(S.panelMode==="tour") renderPanel();
+  toast(`${results.length} entreprise${results.length>1?"s":""} trouvée${results.length>1?"s":""} dans ${radiusM} m`);
+}
+window.recalculerTournee=recalculerTournee;
 
 function effacerTournee(){
   S.tour=null;
