@@ -57,7 +57,7 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);height:100
 .chips{padding:5px 11px;display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line);}
 .chip{display:inline-flex;align-items:center;gap:4px;background:var(--ac-l);color:var(--ac-d);border:1px solid #c7e3e3;border-radius:999px;padding:2px 7px 2px 8px;font-size:10px;font-weight:600;}
 .chip button{border:none;background:none;cursor:pointer;color:var(--ac-d);font-size:12px;line-height:1;}
-.sb-scroll{flex:1;overflow-y:auto;}
+.sb-scroll{flex:1;overflow-y:auto;min-height:180px;}
 .sec-h{display:flex;align-items:center;padding:8px 11px;cursor:pointer;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;user-select:none;gap:5px;}
 .sec-h:hover{background:var(--paper);}.sec-h.open{background:#f8fbfb;}
 .sec-h .arrow{font-size:9px;color:var(--ink-s);transition:transform .2s;margin-left:auto;flex-shrink:0;}
@@ -104,8 +104,8 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);height:100
 .cp-hd{padding:11px 13px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:8px;flex-shrink:0;}
 .cp-title{font-weight:700;font-size:14px;flex:1;}.cp-sub{font-size:11px;color:var(--ink-s);}
 .cp-close{border:none;background:none;font-size:18px;cursor:pointer;color:var(--ink-s);padding:2px;}
-.cp-toggle{position:absolute;top:50%;transform:translateY(-50%);right:390px;z-index:600;width:20px;height:56px;background:var(--panel);border:1px solid var(--line);border-right:none;border-radius:8px 0 0 8px;cursor:pointer;align-items:center;justify-content:center;box-shadow:-2px 0 8px rgba(0,0,0,.1);transition:right .25s ease;color:var(--ink-s);}
-.cp-toggle:hover{background:var(--paper);color:var(--ac-d);}
+.cp-toggle{display:flex;position:absolute;top:50%;transform:translateY(-50%);right:3px;z-index:900;width:26px;height:64px;background:var(--ac);border:none;border-radius:8px 0 0 8px;cursor:pointer;align-items:center;justify-content:center;box-shadow:-3px 0 10px rgba(0,0,0,.2);transition:right .25s ease,background .15s;color:#fff;}
+.cp-toggle:hover{background:var(--ac-d);}
 .cp-stats{padding:7px 13px;border-bottom:1px solid var(--line);display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;}
 .cp-stat{display:flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;}
 .cp-search{padding:7px 13px;border-bottom:1px solid var(--line);flex-shrink:0;}
@@ -278,13 +278,14 @@ tbody td{padding:6px 9px;vertical-align:middle;}
   <!-- Sidebar -->
   <div class="sb">
     <div class="sb-h">
+      <div class="rayon-h open" onclick="toggleRayonBlock('secBody',this)" style="margin-bottom:6px"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span class="r-lbl">Secteur d'activité</span><span class="arrow">▶</span></div>
       <div class="sw"><span class="si"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         <input type="text" id="nafSearch" placeholder="Secteur d'activité..." disabled oninput="onNafSearch(this.value)">
       </div>
       <div id="countScopeIndicator" style="display:none;font-size:10px;color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:5px;padding:3px 7px;margin-top:5px;line-height:1.4"></div>
     </div>
-    <div class="chips" id="chipsArea" style="display:none"></div>
-    <div class="sb-scroll">
+    <div class="chips rayon-body open" id="chipsArea" style="display:none"></div>
+    <div class="sb-scroll rayon-body open" id="secBody">
       <div id="secTree"></div>
       <div class="search-results" id="nafResults"></div>
     </div>
@@ -366,7 +367,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
       <div class="legend" id="legend">Charge un fichier JSON ou Excel pour démarrer.</div>
     </div>
     <!-- Onglet montrer/ranger le panneau (sans perdre son contenu, contrairement à la croix) -->
-    <button class="cp-toggle" id="cpToggle" onclick="toggleCpPanel()" style="display:none">
+    <button class="cp-toggle" id="cpToggle" onclick="toggleCpPanel()">
       <svg class="ic" id="cpToggleIcon" viewBox="0 0 24 24" style="margin:0"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
     <!-- Panneau commune -->
@@ -520,6 +521,7 @@ const S = {
   panelMode:null,  // 'commune' | 'tour'
   tour:null,       // {point:{lat,lon},radiusM,results:[],label}
   tourCircle:null, tourMarker:null, tourMarkers:{}, tourSirets:null,
+  rayonSiretsPrecis:null,
   rayonMarkers:{}, rayonPinsActive:false,
   communesSelect:new Set(), communesMarkers:{}, communesPinsActive:false, communesListe:[],
   ltSelected:new Set(),
@@ -665,6 +667,7 @@ document.addEventListener("DOMContentLoaded", function(){
   initKeyboard();
   checkLSSize();
   updateCommercialPill();
+  updateCpToggleBtn();
   if(!getCommercial()) promptCommercial();
   loadCommunes().then(function(){
     return tryAutoLoad();
@@ -747,14 +750,15 @@ function renderCommunesPins(){
     return;
   }
   const suivi=loadSuivi();
+  const positions=eclaterPositionsIdentiques(geocodees.map(r=>r.siret));
   geocodees.forEach(r=>{
-    const geo=S.geoCache[r.siret];
+    const pos=positions[r.siret]; if(!pos) return;
     const st=ST[suivi[r.siret]?.statut||""]||ST[""];
-    const mk=L.circleMarker(geo.pos,{radius:5,color:darken(st.mc),fillColor:st.mc,fillOpacity:.9,weight:1.3}).addTo(S.map);
+    const mk=L.circleMarker(pos,{radius:5,color:darken(st.mc),fillColor:st.mc,fillOpacity:.9,weight:1.3}).addTo(S.map);
     const full=findFull(r.siret);
     mk.bindTooltip(full?.Nom||"—",{direction:"top"});
     mk.on("click",e=>{ L.DomEvent.stopPropagation(e); ouvrirModal(r.siret); });
-    S.communesMarkers[r.siret]=mk;
+    S.communesMarkers[r.siret]=mk; mk.bringToFront();
   });
   S.communesPinsActive=true;
   if(infoEl) infoEl.textContent=`${geocodees.length.toLocaleString("fr-FR")} points affichés sur ${S.communesSelect.size} commune${S.communesSelect.size>1?"s":""} (sur ${candidats.length.toLocaleString("fr-FR")} au total).`;
@@ -1216,6 +1220,7 @@ async function demarrerPreGeocodage(){
   updateGeoJobUI();
   if(!S.geoJob.cancelled) toast(`Pré-géocodage terminé : ${S.geoJob.ok.toLocaleString("fr-FR")} entreprises géolocalisées.`);
   if(S.tour) recalculerTournee();
+  if(S.rayC){ recalculerRayonPrecis(); renderRayonPins(); updateSectionCounts(); }
 }
 window.demarrerPreGeocodage=demarrerPreGeocodage;
 
@@ -1263,6 +1268,8 @@ async function importerGeoCache(file){
     if(!nb){ toast("Fichier lu mais aucune position valide trouvée dedans."); return; }
     await saveGeoCache(S.geoCache);
     render();
+    if(S.tour) recalculerTournee();
+    if(S.rayC){ recalculerRayonPrecis(); renderRayonPins(); updateSectionCounts(); }
     toast(`${nb.toLocaleString("fr-FR")} positions importées et fusionnées avec ton cache.`);
   }catch(e){
     console.error("[importerGeoCache]",e);
@@ -1383,6 +1390,11 @@ function render(){
     if(!dimmed) marker.on("click",e=>{L.DomEvent.stopPropagation(e);ouvrirPanel(insee);});
     S.markers[insee]=marker;
   });
+  // Les bulles de commune viennent d'être recréées (donc ajoutées en dernier = par-dessus) —
+  // on remet systématiquement les points individuels au premier plan pour qu'ils restent cliquables.
+  Object.values(S.rayonMarkers).forEach(m=>m.bringToFront());
+  Object.values(S.communesMarkers).forEach(m=>m.bringToFront());
+  Object.values(S.tourMarkers).forEach(m=>m.bringToFront());
   const nbContact=Object.values(loadSuivi()).filter(e=>e.statut&&e.statut!=="").length;
   document.getElementById("stTotal").textContent=Object.values(counts).reduce((a,b)=>a+b,0).toLocaleString("fr-FR");
   document.getElementById("stComm").textContent=Object.keys(counts).length;
@@ -1428,6 +1440,19 @@ function ouvrirTourPanel(){
   updateCpToggleBtn();
 }
 window.ouvrirTourPanel=ouvrirTourPanel;
+
+function ouvrirRayonPanel(){
+  if(!S.rayC) return;
+  S.panelMode="rayon";
+  S.cpInsee=null;
+  document.getElementById("cpTitle").textContent="Rayon géographique";
+  document.getElementById("cpSearch").value="";
+  document.getElementById("cp").classList.add("open");
+  S.map&&S.map.invalidateSize();
+  renderPanel();
+  updateCpToggleBtn();
+}
+window.ouvrirRayonPanel=ouvrirRayonPanel;
 function fermerPanel(){
   document.getElementById("cp").classList.remove("open");
   S.cpInsee=null; S.panelMode=null;
@@ -1440,27 +1465,41 @@ window.fermerPanel=fermerPanel;
 // pratique pour jeter un œil à la carte puis retrouver instantanément la même liste.
 function toggleCpPanel(){
   const cp=document.getElementById("cp");
-  cp.classList.toggle("open");
+  const willOpen=!cp.classList.contains("open");
+  cp.classList.toggle("open",willOpen);
+  if(willOpen&&!S.cpInsee&&S.panelMode!=="tour") afficherPanelVide();
   S.map&&S.map.invalidateSize();
   updateCpToggleBtn();
 }
 window.toggleCpPanel=toggleCpPanel;
 
+function afficherPanelVide(){
+  document.getElementById("cpTitle").textContent="Aucune sélection";
+  document.getElementById("cpSub").textContent="";
+  document.getElementById("cpStats").innerHTML="";
+  document.getElementById("cpSearch").value="";
+  document.getElementById("cpScroll").innerHTML=`<div style="padding:20px 16px;font-size:12.5px;color:var(--ink-s);line-height:1.7">
+    Aucune entreprise à afficher pour l'instant. Pour voir une liste ici :<br><br>
+    • Clique sur une <b>bulle de commune</b> sur la carte<br>
+    • Lance une recherche dans <b>Tournée terrain</b><br>
+    • Coche une commune dans <b>Communes spécifiques</b> (+ un secteur d'activité)
+  </div>`;
+}
+
 function updateCpToggleBtn(){
   const btn=document.getElementById("cpToggle");
   const icon=document.getElementById("cpToggleIcon");
   const cp=document.getElementById("cp");
-  const hasContenu=!!(S.cpInsee||S.panelMode==="tour");
-  if(!hasContenu){ btn.style.display="none"; return; }
-  const isOpen=cp.classList.contains("open");
   btn.style.display="flex";
-  btn.style.right=isOpen?"390px":"0px";
+  const isOpen=cp.classList.contains("open");
+  btn.style.right=isOpen?"390px":"3px";
   btn.title=isOpen?"Ranger le panneau":"Afficher le panneau";
   icon.innerHTML=isOpen?'<polyline points="15 18 9 12 15 6"/>':'<polyline points="9 18 15 12 9 6"/>';
 }
 
 function renderPanel(){
   if(S.panelMode==="tour"){ renderTourPanel(); return; }
+  if(S.panelMode==="rayon"){ renderRayonPanel(); return; }
   const insee=S.cpInsee; if(!insee) return;
   const suivi=loadSuivi();
   const rs=getRaySet();
@@ -1532,23 +1571,99 @@ function renderTourPanel(){
   }).join("")||"<div style='padding:14px;color:#999;font-size:12px;text-align:center'>Aucune entreprise géocodée dans ce rayon. Élargis le rayon ou zoome sur la carte pour lancer le géocodage.</div>";
 }
 
+function renderRayonPanel(){
+  if(!S.rayC) return;
+  const suivi=loadSuivi();
+  const qSearch=norm(document.getElementById("cpSearch").value);
+  if(S.selNAF.size===0){
+    document.getElementById("cpSub").textContent="Sélectionne un secteur d'activité";
+    document.getElementById("cpStats").innerHTML="";
+    document.getElementById("cpScroll").innerHTML="<div style='padding:20px 16px;font-size:12.5px;color:var(--ink-s);line-height:1.6'>Coche au moins un secteur dans « Secteur d'activité » à gauche pour voir la liste des entreprises de ce rayon.</div>";
+    return;
+  }
+  const rs=getRaySet();
+  let candidats=S.rows.filter(r=>(!rs||rs.has(r.insee))&&S.selNAF.has(r.naf));
+  const resultats=[];
+  candidats.forEach(r=>{
+    const geo=S.geoCache[r.siret]; if(!geo) return;
+    const d=haversineKm(S.rayC.lat,S.rayC.lon,geo.pos[0],geo.pos[1]);
+    if(d<=S.rayKm){
+      const full=findFull(r.siret);
+      resultats.push({siret:r.siret,nom:full?.Nom||"",activite:full?.Activite||full?.Code_NAF||"",distKm:d});
+    }
+  });
+  resultats.sort((a,b)=>a.distKm-b.distKm);
+  document.getElementById("cpSub").textContent=`${resultats.length.toLocaleString("fr-FR")} entreprises · rayon ${S.rayKm} km`;
+  const stCounts={};
+  resultats.forEach(r=>{const st=suivi[r.siret]?.statut||"";stCounts[st]=(stCounts[st]||0)+1;});
+  document.getElementById("cpStats").innerHTML=Object.entries(stCounts)
+    .sort((a,b)=>ST_PRI.indexOf(a[0])-ST_PRI.indexOf(b[0]))
+    .map(([s,n])=>{const st=ST[s]||ST[""];return `<span class="cp-stat" style="background:${st.bg};color:${st.color}">${st.label.split(" ").slice(0,2).join(" ")} ${n}</span>`;}).join("");
+  const scroll=document.getElementById("cpScroll");
+  let rows=resultats;
+  if(qSearch) rows=rows.filter(r=>norm((r.nom||"")+" "+(r.activite||"")).includes(qSearch));
+  scroll.innerHTML=rows.map(r=>{
+    const e=suivi[r.siret]||{}; const st=ST[e.statut||""]||ST[""];
+    const opts=Object.entries(ST).map(([k,v])=>`<option value="${k}"${k===(e.statut||"")?" selected":""}>${v.label}</option>`).join("");
+    const distLabel=r.distKm<1?`${Math.round(r.distKm*1000)} m`:`${r.distKm.toFixed(1)} km`;
+    return `<div class="cp-row">
+      <div style="flex:1" onclick="ouvrirModal('${r.siret}')">
+        <div class="cp-nom"><span style="font-family:var(--mono);font-size:9.5px;color:var(--ac-d);margin-right:4px">${distLabel}</span>${(r.nom||"—").substring(0,26)}</div>
+        <div class="cp-naf">${(r.activite||"").substring(0,32)}</div>
+      </div>
+      <select class="cp-sel" style="background:${st.bg};color:${st.color}" onchange="cpSetStatut('${r.siret}',this)">${opts}</select>
+    </div>`;
+  }).join("")||"<div style='padding:14px;color:#999;font-size:12px;text-align:center'>Aucune entreprise géocodée dans ce rayon pour ce secteur.</div>";
+}
+
 async function chargerFullEtPanel(insee){
   const ok=await chargerFull(); if(ok) ouvrirPanel(insee);
 }
 window.chargerFullEtPanel=chargerFullEtPanel;
+
+// Écarte légèrement en éventail les entreprises qui partagent exactement la même position géocodée
+// (fréquent : plusieurs sociétés enregistrées à la même adresse administrative, ex. holdings de parcs
+// éoliens/photovoltaïques). Sans ça, elles se superposent parfaitement et n'affichent qu'un seul point
+// cliquable au lieu de plusieurs. Purement visuel — la distance affichée reste calculée sur la vraie position.
+function eclaterPositionsIdentiques(sirets){
+  const groupes=new Map();
+  sirets.forEach(siret=>{
+    const geo=S.geoCache[siret]; if(!geo) return;
+    const cle=geo.pos[0].toFixed(5)+","+geo.pos[1].toFixed(5);
+    if(!groupes.has(cle)) groupes.set(cle,[]);
+    groupes.get(cle).push(siret);
+  });
+  const positions={};
+  groupes.forEach(groupe=>{
+    const geo0=S.geoCache[groupe[0]];
+    if(groupe.length===1){ positions[groupe[0]]=geo0.pos; return; }
+    // Rayon adapté au nombre de points à séparer, pour que deux points voisins sur le cercle
+    // restent visuellement distincts même sur un petit rayon de tournée (zoom serré).
+    const rayonM=Math.max(18,4*groupe.length);
+    const rayonDeg=rayonM/111320;
+    groupe.forEach((siret,i)=>{
+      const angle=(2*Math.PI*i)/groupe.length;
+      const lat=geo0.pos[0]+rayonDeg*Math.cos(angle);
+      const lon=geo0.pos[1]+rayonDeg*Math.sin(angle)/Math.cos(geo0.pos[0]*Math.PI/180);
+      positions[siret]=[lat,lon];
+    });
+  });
+  return positions;
+}
 
 function renderTourMarkers(){
   Object.values(S.tourMarkers).forEach(m=>S.map.removeLayer(m));
   S.tourMarkers={};
   if(!S.tour) return;
   const suivi=loadSuivi();
+  const positions=eclaterPositionsIdentiques(S.tour.results.map(r=>r.siret));
   S.tour.results.forEach(r=>{
-    const geo=S.geoCache[r.siret]; if(!geo) return;
+    const pos=positions[r.siret]; if(!pos) return;
     const st=ST[suivi[r.siret]?.statut||""]||ST[""];
-    const mk=L.circleMarker(geo.pos,{radius:6,color:darken(st.mc),fillColor:st.mc,fillOpacity:.95,weight:1.5}).addTo(S.map);
+    const mk=L.circleMarker(pos,{radius:6,color:darken(st.mc),fillColor:st.mc,fillOpacity:.95,weight:1.5}).addTo(S.map);
     mk.bindTooltip(r.nom||"—",{direction:"top"});
     mk.on("click",e=>{ L.DomEvent.stopPropagation(e); ouvrirModal(r.siret); });
-    S.tourMarkers[r.siret]=mk;
+    S.tourMarkers[r.siret]=mk; mk.bringToFront();
   });
 }
 
@@ -1584,14 +1699,15 @@ function renderRayonPins(){
     return;
   }
   const suivi=loadSuivi();
+  const positions=eclaterPositionsIdentiques(geocodees.map(r=>r.siret));
   geocodees.forEach(r=>{
-    const geo=S.geoCache[r.siret];
+    const pos=positions[r.siret]; if(!pos) return;
     const st=ST[suivi[r.siret]?.statut||""]||ST[""];
-    const mk=L.circleMarker(geo.pos,{radius:5,color:darken(st.mc),fillColor:st.mc,fillOpacity:.9,weight:1.3}).addTo(S.map);
+    const mk=L.circleMarker(pos,{radius:5,color:darken(st.mc),fillColor:st.mc,fillOpacity:.9,weight:1.3}).addTo(S.map);
     const full=findFull(r.siret);
     mk.bindTooltip(full?.Nom||"—",{direction:"top"});
     mk.on("click",e=>{ L.DomEvent.stopPropagation(e); ouvrirModal(r.siret); });
-    S.rayonMarkers[r.siret]=mk;
+    S.rayonMarkers[r.siret]=mk; mk.bringToFront();
   });
   S.rayonPinsActive=true;
   if(rayEl) rayEl.textContent=`${geocodees.length.toLocaleString("fr-FR")} points affichés dans le cercle exact de ${rayonKm} km (${geocodeesToutes.length.toLocaleString("fr-FR")} géocodées dans les communes concernées, ${candidats.length.toLocaleString("fr-FR")} au total dans le secteur).`;
@@ -1603,6 +1719,8 @@ function cpSetStatut(siret,sel){
   sel.style.background=st.bg; sel.style.color=st.color;
   renderPanel();
   if(S.tour&&S.tourMarkers[siret]) renderTourMarkers();
+  if(S.rayonMarkers[siret]) renderRayonPins();
+  if(S.communesMarkers[siret]) renderCommunesPins();
 }
 window.cpSetStatut=cpSetStatut;
 
@@ -1750,6 +1868,8 @@ function selNAF(code,label){
   if(S.selNAF.has(code)) S.selNAF.delete(code); else S.selNAF.add(code);
   updateChips(); updateActiveNAF(); renderRayonPins(); renderCommunesPins(); render(); sauvegarderFiltres();
   if(S.tour) recalculerTournee();
+  if(S.panelMode==="commune") renderPanel();
+  if(!S.tour&&S.rayC) ouvrirRayonPanel();
 }
 function updateChips(){
   const area=document.getElementById("chipsArea");
@@ -1761,13 +1881,14 @@ function updateChips(){
   }).join("");
 }
 function updateActiveNAF(){ document.querySelectorAll(".cr,.sr-row").forEach(r=>r.classList.toggle("active",S.selNAF.has(r.dataset.code))); }
-function removeNAF(code){ S.selNAF.delete(code); updateChips(); updateActiveNAF(); renderRayonPins(); renderCommunesPins(); render(); sauvegarderFiltres(); if(S.tour) recalculerTournee(); }
+function removeNAF(code){ S.selNAF.delete(code); updateChips(); updateActiveNAF(); renderRayonPins(); renderCommunesPins(); render(); sauvegarderFiltres(); if(S.tour) recalculerTournee(); if(S.panelMode==="commune") renderPanel(); if(!S.tour&&S.rayC) ouvrirRayonPanel(); }
 window.removeNAF=removeNAF;
 
 function updateSectionCounts(){
   const useTour=!!(S.tour&&S.tourSirets);
   const useCommunes=!useTour&&S.communesSelect.size>0;
-  const rs=(useTour||useCommunes)?null:getRaySet();
+  const useRayonPrecis=!useTour&&!useCommunes&&!!(S.rayC&&S.rayonSiretsPrecis);
+  const rs=(useTour||useCommunes||useRayonPrecis)?null:getRaySet();
   const indic=document.getElementById("countScopeIndicator");
   if(useTour){
     indic.style.display="block";
@@ -1775,12 +1896,16 @@ function updateSectionCounts(){
   } else if(useCommunes){
     indic.style.display="block";
     indic.textContent=`Compteurs limités à ${S.communesSelect.size} commune${S.communesSelect.size>1?"s":""} sélectionnée${S.communesSelect.size>1?"s":""}`;
+  } else if(useRayonPrecis){
+    indic.style.display="block";
+    indic.textContent=`Compteurs limités au rayon exact : ${S.rayKm} km autour de la commune choisie`;
   } else {
     indic.style.display="none";
   }
   const dansLeScope=r=>{
     if(useTour) return S.tourSirets.has(r.siret);
     if(useCommunes) return S.communesSelect.has(r.insee);
+    if(useRayonPrecis) return S.rayonSiretsPrecis.has(r.siret);
     return !rs||rs.has(r.insee);
   };
   const counts={};
@@ -1820,19 +1945,38 @@ function appliquerRayon(){
   S.rayC={lat:c.lat,lon:c.lon}; S.rayKm=km;
   if(S.rayCircle) S.map.removeLayer(S.rayCircle);
   S.rayCircle=L.circle([c.lat,c.lon],{radius:km*1000,color:"#2563eb",fillColor:"#3b82f6",fillOpacity:.1,weight:2,interactive:false}).addTo(S.map);
+  if(S.rayCircle._path) S.rayCircle._path.style.pointerEvents="none";
   S.map.fitBounds(S.rayCircle.getBounds(),{padding:[20,20]});
   st.textContent=`${cp} ${nom} · ${km} km`; st.className="r-st ok";
   document.getElementById("rayClr").style.display="block";
+  recalculerRayonPrecis();
   renderRayonPins(); render(); sauvegarderFiltres();
+  if(!S.tour) ouvrirRayonPanel();
 }
 function effacerRayon(){
-  S.rayC=null; S.rayKm=null;
+  S.rayC=null; S.rayKm=null; S.rayonSiretsPrecis=null;
   if(S.rayCircle){S.map.removeLayer(S.rayCircle);S.rayCircle=null;}
   document.getElementById("raySt").textContent=""; document.getElementById("raySt").className="r-st";
   document.getElementById("rayClr").style.display="none";
   renderRayonPins(); render(); sauvegarderFiltres();
+  if(S.panelMode==="rayon") fermerPanel();
 }
 window.appliquerRayon=appliquerRayon; window.effacerRayon=effacerRayon;
+
+// Calcule, indépendamment de tout filtre secteur, l'ensemble exact des entreprises réellement
+// dans le cercle précis du rayon géographique (pas juste "commune éligible") — sert aux compteurs
+// de la sidebar pour qu'ils correspondent à ce qui est vraiment affiché sur la carte.
+function recalculerRayonPrecis(){
+  if(!S.rayC){ S.rayonSiretsPrecis=null; return; }
+  const rs=getRaySet();
+  const set=new Set();
+  S.rows.forEach(r=>{
+    if(rs&&!rs.has(r.insee)) return;
+    const geo=S.geoCache[r.siret]; if(!geo) return;
+    if(haversineKm(S.rayC.lat,S.rayC.lon,geo.pos[0],geo.pos[1])<=S.rayKm) set.add(r.siret);
+  });
+  S.rayonSiretsPrecis=set;
+}
 
 function haversineKm(la1,lo1,la2,lo2){
   const R=6371,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;
@@ -1870,7 +2014,9 @@ async function lancerTournee(){
     const zoom = radiusM<=100?18:radiusM<=250?17:radiusM<=500?16:15;
     S.map.setView([lat,lon],zoom);
     S.tourCircle=L.circle([lat,lon],{radius:radiusM,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:.08,weight:2,dashArray:"5,5",interactive:false}).addTo(S.map);
+    if(S.tourCircle._path) S.tourCircle._path.style.pointerEvents="none";
     S.tourMarker=L.circleMarker([lat,lon],{radius:7,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:1,weight:2,interactive:false}).addTo(S.map).bindTooltip(label);
+    if(S.tourMarker._path) S.tourMarker._path.style.pointerEvents="none";
 
     // Communes proches du point (marge au-delà du rayon pour couvrir les frontières de commune),
     // indépendamment du zoom de la carte — c'est le point précis qui définit la zone, pas la vue.
