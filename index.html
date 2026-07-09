@@ -1727,18 +1727,26 @@ window.removeNAF=removeNAF;
 
 function updateSectionCounts(){
   const useTour=!!(S.tour&&S.tourSirets);
-  const rs=useTour?null:getRaySet();
+  const useCommunes=!useTour&&S.communesSelect.size>0;
+  const rs=(useTour||useCommunes)?null:getRaySet();
   const indic=document.getElementById("countScopeIndicator");
   if(useTour){
     indic.style.display="block";
     indic.textContent=`Compteurs limités à la tournée : rayon ${S.tour.radiusM} m autour de "${S.tour.label}"`;
+  } else if(useCommunes){
+    indic.style.display="block";
+    indic.textContent=`Compteurs limités à ${S.communesSelect.size} commune${S.communesSelect.size>1?"s":""} sélectionnée${S.communesSelect.size>1?"s":""}`;
   } else {
     indic.style.display="none";
   }
+  const dansLeScope=r=>{
+    if(useTour) return S.tourSirets.has(r.siret);
+    if(useCommunes) return S.communesSelect.has(r.insee);
+    return !rs||rs.has(r.insee);
+  };
   const counts={};
   S.rows.forEach(r=>{
-    if(useTour){ if(!S.tourSirets.has(r.siret)) return; }
-    else if(rs&&!rs.has(r.insee)) return;
+    if(!dansLeScope(r)) return;
     counts[r.naf]=(counts[r.naf]||0)+1;
   });
   const suivi=loadSuivi();
@@ -1749,7 +1757,7 @@ function updateSectionCounts(){
     item.style.display=tot===0?"none":"";
     // % contact
     let totS=0,contS=0;
-    S.rows.filter(r=>sd.codes.some(c=>c.id===r.naf)&&(useTour?S.tourSirets.has(r.siret):(!rs||rs.has(r.insee)))).forEach(r=>{
+    S.rows.filter(r=>sd.codes.some(c=>c.id===r.naf)&&dansLeScope(r)).forEach(r=>{
       if(r.siret){totS++;if(suivi[r.siret]?.statut&&suivi[r.siret].statut!=="")contS++;}
     });
     const pctEl=item.querySelector(".pct");
