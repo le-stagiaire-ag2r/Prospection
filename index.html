@@ -50,7 +50,7 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);height:100
 
 /* ── Layout ── */
 .main{display:flex;flex:1;overflow:hidden;}
-.sb{width:290px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;}
+.sb{width:290px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;}
 .sb-h{padding:9px 11px 7px;border-bottom:1px solid var(--line);flex-shrink:0;}
 .sw{position:relative;}.sw input{width:100%;padding:7px 10px 7px 28px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);color:var(--ink);background:var(--paper);}
 .sw input:focus{outline:2px solid var(--ac);outline-offset:1px;background:#fff;}.sw .si{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--ink-s);}
@@ -80,6 +80,12 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);height:100
 .search-results{display:none;}.search-results.open{display:block;}
 .rayon{padding:9px 11px;border-top:1px solid var(--line);}
 .r-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-s);margin-bottom:5px;}
+.rayon-h{display:flex;align-items:center;cursor:pointer;user-select:none;margin-bottom:5px;gap:5px;}
+.rayon-h .r-lbl{margin-bottom:0;flex:1;}
+.rayon-h .arrow{font-size:9px;color:var(--ink-s);transition:transform .2s;flex-shrink:0;}
+.rayon-h.open .arrow{transform:rotate(90deg);}
+.rayon-body{display:none;}
+.rayon-body.open{display:block;}
 .rayon select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);margin-bottom:5px;}
 .rayon-row{display:flex;gap:5px;}
 .rayon-row select{flex:1;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);}
@@ -281,7 +287,8 @@ tbody td{padding:6px 9px;vertical-align:middle;}
       <div class="search-results" id="nafResults"></div>
     </div>
     <div class="rayon">
-      <div class="r-lbl"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> Rayon géographique</div>
+      <div class="rayon-h open" onclick="toggleRayonBlock('rgBody',this)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span class="r-lbl">Rayon géographique</span><span class="arrow">▶</span></div>
+      <div class="rayon-body open" id="rgBody">
       <select id="rayVille"><option value="">— Commune...</option></select>
       <div class="rayon-row">
         <select id="rayKm">
@@ -296,17 +303,21 @@ tbody td{padding:6px 9px;vertical-align:middle;}
       <div class="r-st" id="raySt"></div>
       <div style="font-size:10px;color:#7c3aed;margin-top:2px" id="rayPinsInfo"></div>
       <button class="r-clr" id="rayClr" style="display:none" onclick="effacerRayon()">✕ Effacer</button>
+      </div>
     </div>
     <div class="rayon" style="border-top:1px solid var(--line)">
-      <div class="r-lbl"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> Communes spécifiques</div>
+      <div class="rayon-h" onclick="toggleRayonBlock('cmBody',this)"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span class="r-lbl">Communes spécifiques</span><span class="arrow">▶</span></div>
+      <div class="rayon-body" id="cmBody">
       <div style="font-size:10px;color:var(--ink-s);line-height:1.4;margin-bottom:5px">Sans cercle approximatif : choisis exactement les communes à couvrir (utile pour combiner plusieurs villes précisément).</div>
       <input type="text" id="communesSearch" placeholder="Filtrer les communes..." style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);margin-bottom:5px" oninput="onCommunesSearch(this.value)">
       <div id="communesListBox" style="max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--r)"></div>
       <div style="font-size:10px;color:#7c3aed;margin-top:3px" id="communesPinsInfo"></div>
       <button class="r-clr" id="communesClr" style="display:none" onclick="effacerCommunesSel()">✕ Effacer la sélection</button>
+      </div>
     </div>
     <div class="rayon" style="border-top:1px solid var(--line)">
-      <div class="r-lbl"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Tournée terrain</div>
+      <div class="rayon-h open" onclick="toggleRayonBlock('ttBody',this)"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span class="r-lbl">Tournée terrain</span><span class="arrow">▶</span></div>
+      <div class="rayon-body open" id="ttBody">
       <input type="text" id="tourAddr" placeholder="Adresse du RDV, ex : 12 rue Nationale, Lille" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);margin-bottom:5px" onkeydown="if(event.key==='Enter')lancerTournee()">
       <div class="rayon-row">
         <select id="tourRad">
@@ -322,9 +333,11 @@ tbody td{padding:6px 9px;vertical-align:middle;}
         <button class="r-clr" id="tourList" style="display:none;color:var(--ac-d)" onclick="ouvrirTourPanel()">Voir la liste</button>
         <button class="r-clr" id="tourClr" style="display:none" onclick="effacerTournee()">✕ Effacer</button>
       </div>
+      </div>
     </div>
     <div class="rayon" style="border-top:1px solid var(--line)">
-      <div class="r-lbl"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> Pré-géocodage complet</div>
+      <div class="rayon-h" onclick="toggleRayonBlock('pgBody',this)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span class="r-lbl">Pré-géocodage complet</span><span class="arrow">▶</span></div>
+      <div class="rayon-body" id="pgBody">
       <div style="font-size:10.5px;color:var(--ink-s);line-height:1.4;margin-bottom:6px" id="geoJobDesc">Géocode toute la base une fois pour toutes en arrière-plan, pour que carte et tournées soient instantanées ensuite.</div>
       <div class="pb" id="geoJobBarWrap" style="display:none;margin-bottom:5px"><div class="pf" id="geoJobBar" style="width:0%;background:var(--ac)"></div></div>
       <div class="r-st" id="geoJobSt"></div>
@@ -339,6 +352,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
         <input type="file" id="geoCacheFile" accept=".json" style="display:none" onchange="importerGeoCache(this.files[0])">
       </div>
       <div style="font-size:10px;color:var(--ink-s);margin-top:3px">Exporte le cache pour le partager à l'équipe (évite à chacun de re-géocoder).</div>
+      </div>
     </div>
   </div>
 
@@ -1672,6 +1686,13 @@ function toggleSec(key){
   document.querySelectorAll(".codes.open").forEach(el=>{el.classList.remove("open");el.previousElementSibling.classList.remove("open");});
   if(!isOpen){list.classList.add("open");head.classList.add("open");}
 }
+function toggleRayonBlock(bodyId,headEl){
+  const body=document.getElementById(bodyId);
+  const isOpen=body.classList.contains("open");
+  body.classList.toggle("open",!isOpen);
+  headEl.classList.toggle("open",!isOpen);
+}
+window.toggleRayonBlock=toggleRayonBlock;
 function norm(s){ return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
 function onNafSearch(q){
   const tree=document.getElementById("secTree"); const res=document.getElementById("nafResults");
