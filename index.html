@@ -851,6 +851,7 @@ async function tryAutoLoad(){
       });
     }
     S.geoCache=await loadGeoCache();
+    await tryAutoLoadGeoCache();
     buildSecTree(); render();
     document.getElementById("nafSearch").disabled=false;
     document.getElementById("globalSearch").disabled=false;
@@ -863,6 +864,35 @@ async function tryAutoLoad(){
   }catch(e){
     hideLoading();
     console.warn("Auto-load échoué:",e.message);
+    return false;
+  }
+}
+
+// Charge automatiquement un fichier de géocodage pré-calculé (geocache_mel.json) s'il est déposé à
+// côté de data_mel.json — exactement comme data_mel.json lui-même. Optionnel : si absent (404), on
+// se contente silencieusement du cache local du navigateur, aucune erreur affichée à l'utilisateur.
+async function tryAutoLoadGeoCache(){
+  if(window.location.protocol==="file:") return false;
+  try{
+    const loc=window.location.pathname;
+    const dir=loc.endsWith("/")?loc:loc.substring(0,loc.lastIndexOf("/")+1);
+    const url=window.location.origin+dir+"geocache_mel.json";
+    const res=await fetch(url,{cache:"default"});
+    if(!res.ok) return false;
+    const data=await res.json();
+    if(typeof data!=="object"||data===null||Array.isArray(data)) return false;
+    let nb=0;
+    for(const siret in data){
+      if(S.geoCache[siret]) continue; // le cache local (déjà à jour) reste prioritaire
+      const v=data[siret];
+      if(v&&Array.isArray(v.pos)&&v.pos.length===2&&typeof v.pos[0]==="number"&&typeof v.pos[1]==="number"){
+        S.geoCache[siret]=v; nb++;
+      }
+    }
+    if(nb){ await saveGeoCache(S.geoCache); toast(`${nb.toLocaleString("fr-FR")} positions pré-chargées depuis geocache_mel.json`); }
+    return true;
+  }catch(e){
+    console.warn("Auto-load géocache absent ou invalide:",e.message);
     return false;
   }
 }
@@ -920,6 +950,7 @@ async function chargerFichier(file,nom){
     }
     buildSecTree();
     S.geoCache=await loadGeoCache();
+    await tryAutoLoadGeoCache();
     render();
     hideLoading();
     document.getElementById("nafSearch").disabled=false;
