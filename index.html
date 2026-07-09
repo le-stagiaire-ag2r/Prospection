@@ -268,6 +268,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
       <div class="sw"><span class="si"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         <input type="text" id="nafSearch" placeholder="Secteur d'activité..." disabled oninput="onNafSearch(this.value)">
       </div>
+      <div id="countScopeIndicator" style="display:none;font-size:10px;color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:5px;padding:3px 7px;margin-top:5px;line-height:1.4"></div>
     </div>
     <div class="chips" id="chipsArea" style="display:none"></div>
     <div class="sb-scroll">
@@ -484,7 +485,7 @@ const S = {
   cpInsee:null,
   panelMode:null,  // 'commune' | 'tour'
   tour:null,       // {point:{lat,lon},radiusM,results:[],label}
-  tourCircle:null, tourMarker:null, tourMarkers:{},
+  tourCircle:null, tourMarker:null, tourMarkers:{}, tourSirets:null,
   ltSelected:new Set(),
   geoCache:{},   // siret→[lat,lon]
   _geoTimer:null,
@@ -1584,8 +1585,21 @@ function removeNAF(code){ S.selNAF.delete(code); updateChips(); updateActiveNAF(
 window.removeNAF=removeNAF;
 
 function updateSectionCounts(){
-  const rs=getRaySet(); const counts={};
-  S.rows.forEach(r=>{ if(rs&&!rs.has(r.insee)) return; counts[r.naf]=(counts[r.naf]||0)+1; });
+  const useTour=!!(S.tour&&S.tourSirets);
+  const rs=useTour?null:getRaySet();
+  const indic=document.getElementById("countScopeIndicator");
+  if(useTour){
+    indic.style.display="block";
+    indic.textContent=`Compteurs limités à la tournée : rayon ${S.tour.radiusM} m autour de "${S.tour.label}"`;
+  } else {
+    indic.style.display="none";
+  }
+  const counts={};
+  S.rows.forEach(r=>{
+    if(useTour){ if(!S.tourSirets.has(r.siret)) return; }
+    else if(rs&&!rs.has(r.insee)) return;
+    counts[r.naf]=(counts[r.naf]||0)+1;
+  });
   const suivi=loadSuivi();
   document.querySelectorAll(".section-item").forEach(item=>{
     const sec=item.dataset.sec; const sd=NAF_STRUCTURE[sec]; if(!sd) return;
@@ -1594,7 +1608,7 @@ function updateSectionCounts(){
     item.style.display=tot===0?"none":"";
     // % contact
     let totS=0,contS=0;
-    S.rows.filter(r=>sd.codes.some(c=>c.id===r.naf)&&(!rs||rs.has(r.insee))).forEach(r=>{
+    S.rows.filter(r=>sd.codes.some(c=>c.id===r.naf)&&(useTour?S.tourSirets.has(r.siret):(!rs||rs.has(r.insee)))).forEach(r=>{
       if(r.siret){totS++;if(suivi[r.siret]?.statut&&suivi[r.siret].statut!=="")contS++;}
     });
     const pctEl=item.querySelector(".pct");
@@ -1714,6 +1728,17 @@ async function lancerTournee(){
     console.log("[Tournée] candidats géocodés au total:",distances.length,"sur",candidats.length,"· distances (m):",distances.sort((a,b)=>a-b).slice(0,20));
     results.sort((a,b)=>a.distM-b.distM);
     S.tour={point:{lat,lon},radiusM,results,label};
+
+    // Set de TOUTES les entreprises (tous secteurs confondus) dans le rayon, pour les compteurs de la sidebar NAF.
+    // Repose sur ce qui est déjà géocodé (le pré-géocodage complet donne la meilleure précision ici).
+    const tourSirets=new Set();
+    S.rows.forEach(r=>{
+      if(!communesProches.has(r.insee)) return;
+      const geo=S.geoCache[r.siret]; if(!geo) return;
+      if(haversineKm(lat,lon,geo.pos[0],geo.pos[1])*1000<=radiusM) tourSirets.add(r.siret);
+    });
+    S.tourSirets=tourSirets;
+
     renderTourMarkers();
     render();
 
@@ -1733,6 +1758,7 @@ window.lancerTournee=lancerTournee;
 
 function effacerTournee(){
   S.tour=null;
+  S.tourSirets=null;
   if(S.tourCircle){ S.map.removeLayer(S.tourCircle); S.tourCircle=null; }
   if(S.tourMarker){ S.map.removeLayer(S.tourMarker); S.tourMarker=null; }
   Object.values(S.tourMarkers).forEach(m=>S.map.removeLayer(m));
