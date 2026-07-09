@@ -1491,6 +1491,7 @@ async function lancerTournee(){
     if(feat.properties.citycode) communesProches.add(feat.properties.citycode);
     let candidats=S.rows.filter(r=>communesProches.has(r.insee));
     if(S.selNAF.size>0) candidats=candidats.filter(r=>S.selNAF.has(r.naf));
+    console.log("[Tournée]",{point:[lat,lon],citycode:feat.properties.citycode,communesProches:[...communesProches],nbCandidats:candidats.length});
 
     const manquants=candidats.filter(r=>!S.geoCache[r.siret]);
     const MAX_SANS_NAF=250;
@@ -1500,10 +1501,12 @@ async function lancerTournee(){
       return;
     }
     if(manquants.length){
-      await geocodeBatch(manquants.map(r=>{
+      const aGeoc=manquants.map(r=>{
         const full=findFull(r.siret);
         return {siret:r.siret,adresse:String(full?.Adresse||"").replace(/"/g,"'").replace(/,/g," ").trim()};
-      }).filter(x=>x.adresse));
+      }).filter(x=>x.adresse);
+      console.log("[Tournée] à géocoder:",aGeoc.length,"/ manquants:",manquants.length);
+      await geocodeBatch(aGeoc);
     }
 
     const results=[];
@@ -1527,7 +1530,8 @@ async function lancerTournee(){
     ouvrirTourPanel();
     toast(`${results.length} entreprise${results.length>1?"s":""} trouvée${results.length>1?"s":""} dans ${radiusM} m`);
   }catch(e){
-    stEl.textContent="Erreur de géocodage — réessaie.";
+    console.error("[Tournée] erreur:",e);
+    stEl.textContent="Erreur : "+e.message;
   }
   btn.disabled=false;
 }
