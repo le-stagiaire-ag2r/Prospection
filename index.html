@@ -243,6 +243,8 @@ tbody td{padding:6px 9px;vertical-align:middle;}
   </div>
   <button class="btn btn-o" id="btnExport" style="display:none" onclick="exporterSelection()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Exporter</button>
   <button class="btn btn-v" onclick="exporterRapport()"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V10"/><path d="M12 19V4"/><path d="M20 19v-7"/></svg> Rapport</button>
+  <button class="btn btn-g" id="btnEnrichir" style="display:none" onclick="document.getElementById('enrichirFileInput').click()" title="Compléter les exports avec toutes les colonnes du fichier Excel maître (SIREN, TVA, Zone...)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Enrichir</button>
+  <input type="file" id="enrichirFileInput" accept=".xlsx" style="display:none" onchange="enrichirDepuisExcel(this.files[0])">
   <div class="ls-warn" id="lsWarn"><svg class="ic" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg> Stockage presque plein</div>
   <button class="btn btn-g" id="commercialPill" onclick="promptCommercial()" title="Changer de commercial"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg><span id="commercialName">—</span></button>
   <div class="pill">
@@ -818,6 +820,11 @@ async function tryAutoLoad(){
       const iS=g("s","siret"),iI=g("i","insee"),iF=g("f","naf");
       const iN=g("n","nom"),iA=g("a","adresse"),iD=g("d","dir");
       const iR=g("r","role"),iE=g("e","eff"),iCp=g("cp",""),iC=g("c","commune"),iAct=g("act","activite");
+      // Toute colonne du JSON non reconnue ci-dessus (ex: Numero_TVA, Zone, Age_entreprise_ans...) est
+      // transmise telle quelle sous son propre nom d'en-tête, pour que les exports restent complets
+      // dès que le fichier data_mel.json est enrichi côté génération — sans retouche de l'app.
+      const connus=new Set([iS,iI,iF,iN,iA,iD,iR,iE,iCp,iC,iAct].filter(i=>i>=0));
+      const extras=h.map((nomCol,idx)=>({nomCol,idx})).filter(x=>!connus.has(x.idx)&&x.nomCol);
       data.d.forEach(row=>{
         const siret=(iS>=0?row[iS]||"":"").trim();
         const insee=(iI>=0?row[iI]||"":"").trim();
@@ -827,7 +834,7 @@ async function tryAutoLoad(){
         S.nafCounts[naf]=(S.nafCounts[naf]||0)+1;
         if(!S.comSirets[insee]) S.comSirets[insee]=[];
         S.comSirets[insee].push(siret);
-        S.full.push({
+        const entree={
           SIRET_etablissement:siret,
           Nom:iN>=0?(row[iN]||""):"",
           Adresse:iA>=0?(row[iA]||""):"",
@@ -838,7 +845,9 @@ async function tryAutoLoad(){
           Dirigeant_Nom:iD>=0?(row[iD]||""):"",
           Dirigeant_Role:iR>=0?(row[iR]||""):"",
           Effectif_tranche_libelle:iE>=0?(row[iE]||""):"",
-        });
+        };
+        extras.forEach(x=>{ entree[x.nomCol]=row[x.idx]!=null?row[x.idx]:""; });
+        S.full.push(entree);
       });
     }
     S.geoCache=await loadGeoCache();
@@ -846,6 +855,7 @@ async function tryAutoLoad(){
     document.getElementById("nafSearch").disabled=false;
     document.getElementById("globalSearch").disabled=false;
     document.getElementById("btnExport").style.display="block";
+    document.getElementById("btnEnrichir").style.display="inline-flex";
     document.getElementById("fileLbl").textContent="data_mel.json";
     hideLoading();
     toast(S.rows.length.toLocaleString("fr-FR")+" entreprises chargées");
@@ -915,6 +925,7 @@ async function chargerFichier(file,nom){
     document.getElementById("nafSearch").disabled=false;
     document.getElementById("globalSearch").disabled=false;
     document.getElementById("btnExport").style.display="block";
+    document.getElementById("btnEnrichir").style.display="inline-flex";
     toast(`${S.rows.length.toLocaleString("fr-FR")} entreprises chargées`);
     scheduleGeo();
   }catch(err){
@@ -941,6 +952,8 @@ async function chargerJSON(file){
     const iS=g("s","siret"),iI=g("i","insee"),iF=g("f","naf");
     const iN=g("n","nom"),iA=g("a","adresse"),iD=g("d","dir");
     const iR=g("r","role"),iE=g("e","eff"),iCp=g("cp",""),iC=g("c","commune"),iAct=g("act","activite");
+    const connus=new Set([iS,iI,iF,iN,iA,iD,iR,iE,iCp,iC,iAct].filter(i=>i>=0));
+    const extras=h.map((nomCol,idx)=>({nomCol,idx})).filter(x=>!connus.has(x.idx)&&x.nomCol);
     data.d.forEach(row=>{
       const siret=(iS>=0?row[iS]||"":"").trim();
       const insee=(iI>=0?row[iI]||"":"").trim();
@@ -950,7 +963,7 @@ async function chargerJSON(file){
       S.nafCounts[naf]=(S.nafCounts[naf]||0)+1;
       if(!S.comSirets[insee]) S.comSirets[insee]=[];
       S.comSirets[insee].push(siret);
-      S.full.push({
+      const entree={
         SIRET_etablissement:siret,
         Nom:iN>=0?(row[iN]||""):"",
         Adresse:iA>=0?(row[iA]||""):"",
@@ -961,7 +974,9 @@ async function chargerJSON(file){
         Dirigeant_Nom:iD>=0?(row[iD]||""):"",
         Dirigeant_Role:iR>=0?(row[iR]||""):"",
         Effectif_tranche_libelle:iE>=0?(row[iE]||""):"",
-      });
+      };
+      extras.forEach(x=>{ entree[x.nomCol]=row[x.idx]!=null?row[x.idx]:""; });
+      S.full.push(entree);
     });
   } else {
     // Format objet classique (rétrocompatibilité)
@@ -1024,6 +1039,48 @@ async function chargerFull(){
     return true;
   }catch(e){ hideLoading(); alert("Erreur : "+e.message); return false; }
 }
+
+// Complète les entreprises déjà chargées (via le JSON allégé) avec TOUTES les colonnes du fichier Excel
+// maître (SIREN, Numero_TVA, Zone, Nature_juridique_libelle...), par correspondance sur le SIRET.
+// N'affecte que les exports — la carte/tournées continuent de tourner sur les données déjà en mémoire.
+async function enrichirDepuisExcel(file){
+  if(!file) return;
+  if(!S.full||!S.full.length){ toast("Charge d'abord les entreprises (JSON ou Excel)."); document.getElementById("enrichirFileInput").value=""; return; }
+  const btn=document.getElementById("btnEnrichir");
+  btn.disabled=true;
+  showLoading("Lecture du fichier Excel complet...","Ça peut prendre 20-30s pour un gros fichier",10);
+  try{
+    const buf=await file.arrayBuffer();
+    showLoading("Analyse du classeur...","",35);
+    const wb=XLSX.read(buf,{type:"array",sheets:["Toutes_entreprises"]});
+    const sn=wb.SheetNames.includes("Toutes_entreprises")?"Toutes_entreprises":wb.SheetNames[0];
+    showLoading("Indexation des colonnes...","",55);
+    const rowsMaitre=XLSX.utils.sheet_to_json(wb.Sheets[sn],{defval:""});
+    showLoading("Fusion avec les données déjà chargées...","",80);
+    const parSiret=new Map();
+    rowsMaitre.forEach(r=>{
+      const siret=String(r.SIRET_etablissement||r.SIRET||"").replace(".0","").trim();
+      if(siret) parSiret.set(siret,r);
+    });
+    let nbFusionnes=0;
+    S.full.forEach(entree=>{
+      const siret=String(entree.SIRET_etablissement||"").replace(".0","").trim();
+      const src=parSiret.get(siret);
+      if(!src) return;
+      Object.keys(src).forEach(col=>{ if(entree[col]===undefined||entree[col]==="") entree[col]=src[col]; });
+      nbFusionnes++;
+    });
+    hideLoading();
+    toast(`${nbFusionnes.toLocaleString("fr-FR")} entreprises complétées avec les colonnes du fichier maître (SIREN, TVA, Zone, forme juridique...).`);
+  }catch(e){
+    hideLoading();
+    alert("Erreur de lecture du fichier Excel : "+e.message);
+  }
+  btn.disabled=false;
+  document.getElementById("enrichirFileInput").value="";
+}
+window.enrichirDepuisExcel=enrichirDepuisExcel;
+
 
 function buildFullIndex(){
   S.fullIndex=new Map();
