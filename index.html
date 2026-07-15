@@ -2021,8 +2021,10 @@ function renderJournal(siret){
 function moSetStatut(siret,val,btn){
   document.querySelectorAll("#moStBtns button").forEach(b=>b.classList.remove("active"));
   btn.classList.add("active"); setStatut(siret,val);
-  if(S.cpInsee||S.panelMode==="tour") renderPanel();
+  if(S.cpInsee||S.panelMode==="tour"||S.panelMode==="rayon") renderPanel();
   if(S.tour&&S.tourMarkers[siret]) renderTourMarkers();
+  if(S.rayonMarkers[siret]) renderRayonPins();
+  if(S.communesMarkers[siret]) renderCommunesPins();
 }
 window.moSetStatut=moSetStatut;
 
