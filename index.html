@@ -1533,12 +1533,22 @@ window.toggleSF=toggleSF; window.resetSF=resetSF;
 // ════════════════════════════════════════════════════════════════
 function getCommuneColor(insee){
   const suivi=loadSuivi(); const sirets=S.comSirets[insee]||[];
-  let best="",bestIdx=ST_PRI.length-1,contacted=0;
+  const counts={};
+  let contacted=0;
   sirets.forEach(s=>{
-    const st=suivi[s]?.statut||""; if(st!=="") contacted++;
-    const idx=ST_PRI.indexOf(st);
-    if(idx>=0&&idx<bestIdx){bestIdx=idx;best=st;}
+    const st=suivi[s]?.statut||"";
+    if(st!=="") contacted++;
+    counts[st]=(counts[st]||0)+1;
   });
+  // Un statut ne colore toute la bulle que s'il concerne une part significative de la commune —
+  // sinon une seule entreprise marquée "chaud" sur des milliers ferait passer toute la commune en
+  // orange, ce qui est trompeur à l'échelle de la métropole. En dessous du seuil, la bulle reste grise.
+  const seuil=Math.max(2,Math.ceil(sirets.length*0.01));
+  let best="";
+  for(const code of ST_PRI){
+    if(code==="") continue;
+    if((counts[code]||0)>=seuil){ best=code; break; }
+  }
   const st=ST[best]||ST[""];
   const opacity=contacted>0?Math.min(0.9,0.42+contacted/Math.max(sirets.length,1)*0.48):0.42;
   return {color:st.mc,opacity,contacted,total:sirets.length};
@@ -1565,14 +1575,17 @@ function render(){
   });
   const vals=Object.values(counts), maxC=vals.length?Math.max(...vals):0;
   const zoom=S.map.getZoom();
+  const hasFiltresActifs=S.selNAF.size>0||!!S.rayC||!!S.tour||S.communesSelect.size>0||S.effectifSelect.size>0;
   Object.entries(counts).forEach(([insee,n])=>{
     const c=S.communes[insee]; if(!c) return;
     const radius=4+Math.sqrt(n/Math.max(maxC,1))*40;
-    const {color,opacity,contacted,total}=getCommuneColor(insee);
+    // Sans aucun filtre actif, les bulles restent grises et neutres (juste une indication de volume) —
+    // la coloration par statut n'apparaît que lorsqu'on a filtré sur quelque chose de précis.
+    const {color,opacity,contacted,total}=hasFiltresActifs?getCommuneColor(insee):{color:ST[""].mc,opacity:0.5,contacted:0,total:n};
     const dimmed=!!S.tour||S.rayonPinsActive||S.communesPinsActive;
     const marker=L.circleMarker([c.lat,c.lon],{radius,fillColor:color,color:darken(color),weight:1.5,fillOpacity:dimmed?0.05:opacity,opacity:dimmed?0.12:1,interactive:!dimmed});
     // Label % si contactés et assez zoomé
-    if(zoom>=11&&contacted>0&&!dimmed){
+    if(hasFiltresActifs&&zoom>=11&&contacted>0&&!dimmed){
       const pct=Math.round(contacted/total*100);
       marker.bindTooltip(`${c.nom}<br><b>${pct}%</b> contacté`,{permanent:false,direction:"top",className:"leaflet-tooltip"});
     }
@@ -1592,9 +1605,9 @@ function render(){
   document.getElementById("stCont").textContent=nbContact;
   const legend=document.getElementById("legend");
   if(!Object.keys(counts).length){legend.innerHTML="Aucune entreprise pour ces filtres.";return;}
-  legend.innerHTML=`Cliquer sur une bulle → voir les entreprises.<br>
-    Couleur = meilleur statut dans la commune.<br>
-    En mode https : les adresses sont géocodées.`;
+  legend.innerHTML=hasFiltresActifs
+    ?`Cliquer sur une bulle → voir les entreprises.<br>Couleur = meilleur statut dans la commune (filtre actif).<br>En mode https : les adresses sont géocodées.`
+    :`Cliquer sur une bulle → voir les entreprises.<br>Bulles grises : aucun filtre actif.<br>Applique un filtre pour voir les statuts en couleur.`;
   updateSectionCounts();
   refreshActiveView();
 }
