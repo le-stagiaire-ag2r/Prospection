@@ -111,7 +111,7 @@ body{font-family:var(--sans);background:var(--paper);color:var(--ink);height:100
 .cp-search{padding:7px 13px;border-bottom:1px solid var(--line);flex-shrink:0;}
 .cp-search input{width:100%;padding:6px 10px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);}
 .cp-scroll{flex:1;overflow-y:auto;}
-.cp-row{display:flex;align-items:center;gap:8px;padding:8px 13px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .1s;}
+.cp-row{display:flex;align-items:center;gap:8px;padding:8px 13px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .1s;border-left:4px solid transparent;}
 .cp-row:hover{background:var(--paper);}
 .cp-nom{font-size:12px;font-weight:600;line-height:1.3;}
 .cp-naf{font-size:10.5px;color:var(--ink-s);}
@@ -406,8 +406,17 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
         <button class="cp-close" onclick="fermerPanel()">✕</button>
       </div>
       <div class="cp-stats" id="cpStats"></div>
-      <div class="cp-search">
-        <input type="text" id="cpSearch" placeholder="Filtrer dans cette commune..." oninput="renderPanel()">
+      <div class="cp-search" style="display:flex;gap:6px;align-items:center">
+        <input type="text" id="cpSearch" placeholder="Filtrer dans cette commune..." oninput="renderPanel()" style="flex:1">
+        <select id="cpStatutFilter" onchange="onCpStatutFilterChange()" style="padding:6px 6px;border:1px solid var(--line);border-radius:var(--r);font-size:11px;font-family:var(--sans);flex-shrink:0" title="Filtrer/trier par statut">
+          <option value="__tous__">Tout statut</option>
+          <option value="__vide__">⬤ Non contacté</option>
+          <option value="a_contacter">⬤ À contacter</option>
+          <option value="en_cours">⬤ En cours</option>
+          <option value="rdv">⬤ RDV pris</option>
+          <option value="pas_interesse">⬤ Pas intéressé</option>
+          <option value="chaud">⬤ Chaud</option>
+        </select>
       </div>
       <div class="cp-scroll" id="cpScroll"></div>
     </div>
@@ -564,6 +573,7 @@ const S = {
   geoJob:{running:false,paused:false,cancelled:false,total:0,done:0,ok:0},
   lastAction:null, _undoTimer:null,
   effectifSelect:new Set(),
+  cpStatutFilter:"__tous__",
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -1468,18 +1478,26 @@ function effectifMatch(siret){
   return S.effectifSelect.has(val);
 }
 
-// Périmètre géographique actuellement actif, avec la même priorité partout dans l'app :
-// Tournée > Communes spécifiques > Rayon précis (secteur choisi) > Rayon géographique large > tout.
-// Combiné avec le filtre secteur (NAF) et taille d'entreprise. Utilisé par la carte, les compteurs
-// de la sidebar, le Dashboard et les Stats — pour que tout affiche toujours les mêmes chiffres.
-function dansScopeActif(r){
+// Périmètre géographique + taille d'entreprise actif, SANS le filtre secteur (NAF) — utilisé
+// uniquement pour les compteurs de l'arbre NAF dans la sidebar : chaque code doit afficher combien
+// d'entreprises il représente dans la zone choisie, y compris les codes pas encore cochés, sinon
+// dès qu'on sélectionne un premier secteur tous les autres tombent à zéro et disparaissent.
+function dansScopeGeoEffectif(r){
   if(!effectifMatch(r.siret)) return false;
-  if(S.selNAF.size>0&&!S.selNAF.has(r.naf)) return false;
   if(S.tour&&S.tourSirets) return S.tourSirets.has(r.siret);
   if(S.communesSelect.size>0) return S.communesSelect.has(r.insee);
   if(S.rayC&&S.rayonSiretsPrecis) return S.rayonSiretsPrecis.has(r.siret);
   const rs=getRaySet();
   return !rs||rs.has(r.insee);
+}
+
+// Périmètre complet actuellement actif (géo + taille + secteurs cochés), avec la même priorité
+// géographique partout dans l'app : Tournée > Communes spécifiques > Rayon précis > Rayon large > tout.
+// Utilisé par la carte, le Dashboard, les Stats et la Liste — pour que tout affiche toujours les
+// mêmes chiffres. Ne PAS utiliser pour les compteurs de l'arbre NAF (voir dansScopeGeoEffectif).
+function dansScopeActif(r){
+  if(S.selNAF.size>0&&!S.selNAF.has(r.naf)) return false;
+  return dansScopeGeoEffectif(r);
 }
 
 function getFiltresSirets(){
@@ -1670,7 +1688,32 @@ function updateCpToggleBtn(){
   icon.innerHTML=isOpen?'<polyline points="15 18 9 12 15 6"/>':'<polyline points="9 18 15 12 9 6"/>';
 }
 
+function onCpStatutFilterChange(){
+  S.cpStatutFilter=document.getElementById("cpStatutFilter").value;
+  renderPanel();
+}
+window.onCpStatutFilterChange=onCpStatutFilterChange;
+
+// Filtre une liste de {siret,...} par le statut choisi dans le panneau (si actif), puis trie par
+// priorité de statut (chaud/rdv/en_cours en premier) quand un filtre est actif, pour regrouper
+// visuellement — sinon garde l'ordre d'origine (distance, alphabétique...) de l'appelant.
+function filtrerTrierParStatutPanel(rows,suivi){
+  let out=rows;
+  if(S.cpStatutFilter&&S.cpStatutFilter!=="__tous__"){
+    const cible=S.cpStatutFilter==="__vide__"?"":S.cpStatutFilter;
+    out=out.filter(r=>(suivi[r.siret]?.statut||"")===cible);
+  }
+  return out;
+}
+// Bordure gauche colorée selon le statut, pour repérer visuellement d'un coup d'œil dans une liste.
+function bordureStatut(statut){
+  const st=ST[statut||""]||ST[""];
+  return `border-left-color:${st.mc}`;
+}
+
 function renderPanel(){
+  const selFiltre=document.getElementById("cpStatutFilter");
+  if(selFiltre&&selFiltre.value!==S.cpStatutFilter) selFiltre.value=S.cpStatutFilter;
   if(S.panelMode==="tour"){ renderTourPanel(); return; }
   if(S.panelMode==="rayon"){ renderRayonPanel(); return; }
   const insee=S.cpInsee; if(!insee) return;
@@ -1701,12 +1744,19 @@ function renderPanel(){
     return String(r.Code_INSEE||"").trim()===insee&&siretsFiltres.has(siret);
   });
   if(qSearch) rowsDetail=rowsDetail.filter(r=>norm((r.Nom||"")+" "+(r.Activite||"")).includes(qSearch));
+  if(S.cpStatutFilter&&S.cpStatutFilter!=="__tous__"){
+    const cible=S.cpStatutFilter==="__vide__"?"":S.cpStatutFilter;
+    rowsDetail=rowsDetail.filter(r=>{
+      const siret=String(r.SIRET_etablissement||r.SIRET||"").replace(".0","").trim();
+      return (suivi[siret]?.statut||"")===cible;
+    });
+  }
   scroll.innerHTML=rowsDetail.slice(0,300).map(row=>{
     const siret=String(row.SIRET_etablissement||row.SIRET||"").replace(".0","").trim();
     const e=suivi[siret]||{}; const st=ST[e.statut||""]||ST[""];
     const opts=Object.entries(ST).map(([k,v])=>`<option value="${k}"${k===(e.statut||"")?" selected":""}>${v.label}</option>`).join("");
     const geo=S.geoCache[siret]?`<span title="Géocodé" style="color:#22c55e"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></span>`:"";
-    return `<div class="cp-row">
+    return `<div class="cp-row" style="${bordureStatut(e.statut)}">
       <div style="flex:1" onclick="ouvrirModal('${siret}')">
         <div class="cp-nom">${geo}${(row.Nom||"—").substring(0,28)}</div>
         <div class="cp-naf">${(row.Activite||row.Code_NAF||"").substring(0,32)}</div>
@@ -1730,11 +1780,12 @@ function renderTourPanel(){
   const scroll=document.getElementById("cpScroll");
   let rows=S.tour.results;
   if(qSearch) rows=rows.filter(r=>norm((r.nom||"")+" "+(r.activite||"")).includes(qSearch));
+  rows=filtrerTrierParStatutPanel(rows,suivi);
   scroll.innerHTML=rows.map(r=>{
     const e=suivi[r.siret]||{}; const st=ST[e.statut||""]||ST[""];
     const opts=Object.entries(ST).map(([k,v])=>`<option value="${k}"${k===(e.statut||"")?" selected":""}>${v.label}</option>`).join("");
     const distLabel=r.distM<1000?`${Math.round(r.distM)} m`:`${(r.distM/1000).toFixed(1)} km`;
-    return `<div class="cp-row">
+    return `<div class="cp-row" style="${bordureStatut(e.statut)}">
       <div style="flex:1" onclick="ouvrirModal('${r.siret}')">
         <div class="cp-nom"><span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#7c3aed;color:#fff;font-family:var(--mono);font-size:9px;font-weight:700;margin-right:5px">${r.ordre}</span><span style="font-family:var(--mono);font-size:9.5px;color:var(--ac-d);margin-right:4px">${distLabel}</span>${(r.nom||"—").substring(0,24)}</div>
         <div class="cp-naf">${(r.activite||"").substring(0,32)}</div>
@@ -1775,11 +1826,12 @@ function renderRayonPanel(){
   const scroll=document.getElementById("cpScroll");
   let rows=resultats;
   if(qSearch) rows=rows.filter(r=>norm((r.nom||"")+" "+(r.activite||"")).includes(qSearch));
+  rows=filtrerTrierParStatutPanel(rows,suivi);
   scroll.innerHTML=rows.map(r=>{
     const e=suivi[r.siret]||{}; const st=ST[e.statut||""]||ST[""];
     const opts=Object.entries(ST).map(([k,v])=>`<option value="${k}"${k===(e.statut||"")?" selected":""}>${v.label}</option>`).join("");
     const distLabel=r.distKm<1?`${Math.round(r.distKm*1000)} m`:`${r.distKm.toFixed(1)} km`;
-    return `<div class="cp-row">
+    return `<div class="cp-row" style="${bordureStatut(e.statut)}">
       <div style="flex:1" onclick="ouvrirModal('${r.siret}')">
         <div class="cp-nom"><span style="font-family:var(--mono);font-size:9.5px;color:var(--ac-d);margin-right:4px">${distLabel}</span>${(r.nom||"—").substring(0,26)}</div>
         <div class="cp-naf">${(r.activite||"").substring(0,32)}</div>
@@ -2144,7 +2196,7 @@ function updateSectionCounts(){
   } else {
     indic.style.display="none";
   }
-  const dansLeScope=r=>dansScopeActif(r);
+  const dansLeScope=r=>dansScopeGeoEffectif(r);
   const counts={};
   S.rows.forEach(r=>{
     if(!dansLeScope(r)) return;
