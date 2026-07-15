@@ -216,6 +216,25 @@ tbody td{padding:6px 9px;vertical-align:middle;}
 .toast{position:fixed;bottom:18px;right:18px;background:#0f2438;color:#fff;padding:9px 14px;border-radius:var(--r);font-size:12px;z-index:9999;opacity:0;transform:translateY(8px);transition:all .25s;max-width:320px;}
 .toast.show{opacity:1;transform:translateY(0);}
 
+/* ── Feuille de tournée imprimable ── */
+#printSheet{display:none;}
+.ps-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f2438;padding-bottom:10px;margin-bottom:14px;}
+.ps-title{font-size:19px;font-weight:800;}
+.ps-sub{font-size:12px;color:#555;margin-top:3px;}
+.ps-meta{text-align:right;font-size:11px;color:#555;line-height:1.6;}
+table.ps-table{width:100%;border-collapse:collapse;font-size:11.5px;}
+table.ps-table th{text-align:left;padding:6px 7px;background:#eef1f3;border:1px solid #ccc;font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
+table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
+.ps-ordre{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#0f2438;color:#fff;font-weight:700;font-size:10px;}
+.ps-check{width:16px;height:16px;border:1.5px solid #888;border-radius:3px;display:inline-block;}
+.ps-foot{margin-top:16px;font-size:10px;color:#888;}
+@media print{
+  body *{visibility:hidden;}
+  #printSheet, #printSheet *{visibility:visible;}
+  #printSheet{display:block;position:absolute;top:0;left:0;width:100%;padding:20px;}
+  @page{margin:14mm;}
+}
+
 /* ── Geocoding indicator ── */
 .geo-hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(15,36,56,.82);color:#fff;padding:6px 14px;border-radius:999px;font-size:11.5px;pointer-events:none;transition:opacity .3s;opacity:0;}
 .geo-hint.show{opacity:1;}
@@ -341,8 +360,9 @@ tbody td{padding:6px 9px;vertical-align:middle;}
         <button class="btn btn-p" id="btnTour" onclick="lancerTournee()" style="flex-shrink:0"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
       </div>
       <div class="r-st" id="tourSt"></div>
-      <div style="display:flex;gap:8px;margin-top:3px">
+      <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap">
         <button class="r-clr" id="tourList" style="display:none;color:var(--ac-d)" onclick="ouvrirTourPanel()">Voir la liste</button>
+        <button class="r-clr" id="tourPrint" style="display:none;color:#0a4f4f" onclick="imprimerTournee()">Imprimer / PDF</button>
         <button class="r-clr" id="tourClr" style="display:none" onclick="effacerTournee()">✕ Effacer</button>
       </div>
       </div>
@@ -485,6 +505,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+<div id="printSheet"></div>
 <div class="toast" id="undoBar" style="display:flex;align-items:center;gap:10px;bottom:60px">
   <span id="undoText"></span>
   <button onclick="annulerDernierStatut()" style="background:#fff;color:#0f2438;border:none;border-radius:5px;padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;flex-shrink:0">Annuler</button>
@@ -1150,6 +1171,7 @@ async function enrichirDepuisExcel(file){
       nbFusionnes++;
     });
     hideLoading();
+    peuplerEffectifList();
     toast(`${nbFusionnes.toLocaleString("fr-FR")} entreprises complétées avec les colonnes du fichier maître (SIREN, TVA, Zone, forme juridique...).`);
   }catch(e){
     hideLoading();
@@ -1446,24 +1468,30 @@ function effectifMatch(siret){
   return S.effectifSelect.has(val);
 }
 
-function getFiltresSirets(){
+// Périmètre géographique actuellement actif, avec la même priorité partout dans l'app :
+// Tournée > Communes spécifiques > Rayon précis (secteur choisi) > Rayon géographique large > tout.
+// Combiné avec le filtre secteur (NAF) et taille d'entreprise. Utilisé par la carte, les compteurs
+// de la sidebar, le Dashboard et les Stats — pour que tout affiche toujours les mêmes chiffres.
+function dansScopeActif(r){
+  if(!effectifMatch(r.siret)) return false;
+  if(S.selNAF.size>0&&!S.selNAF.has(r.naf)) return false;
+  if(S.tour&&S.tourSirets) return S.tourSirets.has(r.siret);
+  if(S.communesSelect.size>0) return S.communesSelect.has(r.insee);
+  if(S.rayC&&S.rayonSiretsPrecis) return S.rayonSiretsPrecis.has(r.siret);
   const rs=getRaySet();
-  return new Set(S.rows.filter(r=>{
-    if(S.selNAF.size>0&&!S.selNAF.has(r.naf)) return false;
-    if(rs&&!rs.has(r.insee)) return false;
-    if(!effectifMatch(r.siret)) return false;
-    return true;
-  }).map(r=>r.siret).filter(Boolean));
+  return !rs||rs.has(r.insee);
+}
+
+function getFiltresSirets(){
+  return new Set(S.rows.filter(r=>dansScopeActif(r)).map(r=>r.siret).filter(Boolean));
 }
 
 function getTotalFiltres(){ return getFiltresSirets().size; }
 
 function getRowsFiltres(){
-  const rs=getRaySet(); const suivi=loadSuivi();
+  const suivi=loadSuivi();
   return S.rows.filter(r=>{
-    if(S.selNAF.size>0&&!S.selNAF.has(r.naf)) return false;
-    if(rs&&!rs.has(r.insee)) return false;
-    if(!effectifMatch(r.siret)) return false;
+    if(!dansScopeActif(r)) return false;
     const st=r.siret?(suivi[r.siret]?.statut||""):"";
     if(!S.sfActive.has(st)) return false;
     return true;
@@ -1509,12 +1537,10 @@ function darken(hex){
 function render(){
   Object.values(S.markers).forEach(m=>S.map.removeLayer(m));
   S.markers={};
-  const rs=getRaySet(); const suivi=loadSuivi();
+  const suivi=loadSuivi();
   const counts={};
   S.rows.forEach(r=>{
-    if(S.selNAF.size>0&&!S.selNAF.has(r.naf)) return;
-    if(rs&&!rs.has(r.insee)) return;
-    if(!effectifMatch(r.siret)) return;
+    if(!dansScopeActif(r)) return;
     const st=r.siret?(suivi[r.siret]?.statut||""):"";
     if(!S.sfActive.has(st)) return;
     counts[r.insee]=(counts[r.insee]||0)+1;
@@ -2000,6 +2026,11 @@ function peuplerEffectifList(){
     const v=r.Effectif_tranche_libelle||"Non renseigné / sans salarié";
     counts[v]=(counts[v]||0)+1;
   });
+  const nbRenseignees=S.full.length-(counts["Non renseigné / sans salarié"]||0);
+  if(nbRenseignees<S.full.length*0.02){
+    box.innerHTML="<div style='padding:10px 4px;font-size:11px;color:#c2530f;line-height:1.5'>Donnée quasi absente du fichier chargé (JSON allégé). Clique sur <b>Enrichir</b> en haut (avec ton Excel complet) pour la récupérer.</div>";
+    return;
+  }
   const presentes=EFFECTIF_ORDRE.filter(v=>counts[v]>0);
   box.innerHTML=presentes.map(v=>`<label class="cmr"><input type="checkbox" ${S.effectifSelect.has(v)?"checked":""} onchange="toggleEffectifSel('${v.replace(/'/g,"\\'")}')"><span class="cmn">${v}</span><span class="cmc">${counts[v].toLocaleString("fr-FR")}</span></label>`).join("")||"<div style='padding:10px;font-size:11px;color:var(--ink-s)'>Donnée indisponible.</div>";
 }
@@ -2096,7 +2127,6 @@ function updateSectionCounts(){
   const useTour=!!(S.tour&&S.tourSirets);
   const useCommunes=!useTour&&S.communesSelect.size>0;
   const useRayonPrecis=!useTour&&!useCommunes&&!!(S.rayC&&S.rayonSiretsPrecis);
-  const rs=(useTour||useCommunes||useRayonPrecis)?null:getRaySet();
   const indic=document.getElementById("countScopeIndicator");
   const suffixeEffectif=S.effectifSelect.size>0?` · ${S.effectifSelect.size} taille${S.effectifSelect.size>1?"s":""} sélectionnée${S.effectifSelect.size>1?"s":""}`:"";
   if(useTour){
@@ -2114,13 +2144,7 @@ function updateSectionCounts(){
   } else {
     indic.style.display="none";
   }
-  const dansLeScope=r=>{
-    if(!effectifMatch(r.siret)) return false;
-    if(useTour) return S.tourSirets.has(r.siret);
-    if(useCommunes) return S.communesSelect.has(r.insee);
-    if(useRayonPrecis) return S.rayonSiretsPrecis.has(r.siret);
-    return !rs||rs.has(r.insee);
-  };
+  const dansLeScope=r=>dansScopeActif(r);
   const counts={};
   S.rows.forEach(r=>{
     if(!dansLeScope(r)) return;
@@ -2271,6 +2295,7 @@ async function lancerTournee(){
     S.tourSirets=null;
     document.getElementById("tourClr").style.display="inline-block";
     document.getElementById("tourList").style.display="inline-block";
+    document.getElementById("tourPrint").style.display="inline-block";
 
     await recalculerTournee();
     ouvrirTourPanel();
@@ -2360,10 +2385,53 @@ function effacerTournee(){
   document.getElementById("tourSt").textContent="";
   document.getElementById("tourClr").style.display="none";
   document.getElementById("tourList").style.display="none";
+  document.getElementById("tourPrint").style.display="none";
   if(S.panelMode==="tour") fermerPanel();
   render();
 }
 window.effacerTournee=effacerTournee;
+
+// Construit une feuille de route imprimable pour la tournée active (adresses réelles, ordre de
+// parcours, statuts, cases à cocher) puis déclenche l'impression du navigateur — l'utilisateur
+// choisit "Enregistrer en PDF" dans la boîte de dialogue s'il veut un fichier plutôt qu'un papier.
+function imprimerTournee(){
+  if(!S.tour||!S.tour.results.length){ toast("Aucune tournée active à imprimer."); return; }
+  const suivi=loadSuivi();
+  const today=new Date().toLocaleDateString("fr-FR",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  const commercial=getCommercial();
+  const lignes=S.tour.results.map(r=>{
+    const full=findFull(r.siret);
+    const e=suivi[r.siret]||{};
+    const st=ST[e.statut||""]||ST[""];
+    const adresse=full?.Adresse||"";
+    const distLabel=r.distM<1000?`${Math.round(r.distM)} m`:`${(r.distM/1000).toFixed(1)} km`;
+    return `<tr>
+      <td style="text-align:center"><span class="ps-ordre">${r.ordre}</span></td>
+      <td><span class="ps-check"></span></td>
+      <td><b>${(r.nom||"—").substring(0,40)}</b><br><span style="color:#666">${(r.activite||"").substring(0,45)}</span></td>
+      <td>${adresse.substring(0,55)}</td>
+      <td>${distLabel}</td>
+      <td>${st.label.replace("●","").trim()}</td>
+      <td></td>
+    </tr>`;
+  }).join("");
+  document.getElementById("printSheet").innerHTML=`
+    <div class="ps-head">
+      <div>
+        <div class="ps-title">Tournée terrain</div>
+        <div class="ps-sub">${S.tour.label}<br>Rayon ${S.tour.radiusM} m · ${S.tour.results.length} entreprises</div>
+      </div>
+      <div class="ps-meta">${today}${commercial?"<br>Commercial : "+commercial:""}</div>
+    </div>
+    <table class="ps-table">
+      <thead><tr><th>N°</th><th>Fait</th><th>Entreprise</th><th>Adresse</th><th>Distance</th><th>Statut</th><th>Note</th></tr></thead>
+      <tbody>${lignes}</tbody>
+    </table>
+    <div class="ps-foot">Généré depuis MEL Pro le ${new Date().toLocaleString("fr-FR")} — parcours dans l'ordre de proximité à pied depuis le point de départ.</div>
+  `;
+  setTimeout(()=>window.print(),50);
+}
+window.imprimerTournee=imprimerTournee;
 
 // ════════════════════════════════════════════════════════════════
 // VUE LISTE
@@ -2381,7 +2449,7 @@ async function renderListe(){
   const fSt=document.getElementById("ltStatut").value;
   const fCom=document.getElementById("ltCommune").value;
   const q=norm(document.getElementById("ltSearch").value.trim()||S.gSearch);
-  const suivi=loadSuivi(); const rs=getRaySet();
+  const suivi=loadSuivi();
   let rows=S.full.filter(row=>{
     const insee=String(row.Code_INSEE||"").trim();
     const naf=String(row.Code_NAF||"").trim();
@@ -2390,9 +2458,7 @@ async function renderListe(){
     if(fSt==="__vide__"&&statut!=="") return false;
     if(fSt&&fSt!=="__vide__"&&statut!==fSt) return false;
     if(fCom&&insee!==fCom) return false;
-    if(S.selNAF.size>0&&!S.selNAF.has(naf)) return false;
-    if(rs&&!rs.has(insee)) return false;
-    if(S.effectifSelect.size>0&&!S.effectifSelect.has(row.Effectif_tranche_libelle||"Non renseigné / sans salarié")) return false;
+    if(!dansScopeActif({siret,insee,naf})) return false;
     if(q){const hay=norm((row.Nom||"")+" "+(row.Activite||"")+" "+(row.Commune||"")+" "+(row.Dirigeant_Nom||""));if(!hay.includes(q)) return false;}
     return true;
   });
@@ -2488,7 +2554,7 @@ window.clearSelection=clearSelection;
 // ════════════════════════════════════════════════════════════════
 function updateDash(){
   const suivi=loadSuivi(); const fSirets=getFiltresSirets();
-  const hasFiltres=S.selNAF.size>0||S.rayC;
+  const hasFiltres=S.selNAF.size>0||!!S.rayC||!!S.tour||S.communesSelect.size>0||S.effectifSelect.size>0;
   const entries=Object.entries(suivi).filter(([s])=>!hasFiltres||fSirets.has(s));
   const total=getTotalFiltres();
   const nbCont=entries.filter(([,e])=>e.statut&&e.statut!=="").length;
@@ -2538,7 +2604,7 @@ function updateDash(){
 // ════════════════════════════════════════════════════════════════
 function updateStats(){
   const suivi=loadSuivi(); const fSirets=getFiltresSirets();
-  const hasFiltres=S.selNAF.size>0||S.rayC;
+  const hasFiltres=S.selNAF.size>0||!!S.rayC||!!S.tour||S.communesSelect.size>0||S.effectifSelect.size>0;
   const suiviF=hasFiltres?Object.fromEntries(Object.entries(suivi).filter(([s])=>fSirets.has(s))):suivi;
   const total=getTotalFiltres();
   const ctx=hasFiltres?`<span style="font-size:11px;color:var(--ac-d);background:var(--ac-l);padding:2px 8px;border-radius:999px;margin-left:6px">${total.toLocaleString("fr-FR")} entreprises filtrées</span>`:"";
