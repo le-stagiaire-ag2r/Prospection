@@ -410,12 +410,12 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
         <input type="text" id="cpSearch" placeholder="Filtrer dans cette commune..." oninput="renderPanel()" style="flex:1">
         <select id="cpStatutFilter" onchange="onCpStatutFilterChange()" style="padding:6px 6px;border:1px solid var(--line);border-radius:var(--r);font-size:11px;font-family:var(--sans);flex-shrink:0" title="Filtrer/trier par statut">
           <option value="__tous__">Tout statut</option>
-          <option value="__vide__">⬤ Non contacté</option>
-          <option value="a_contacter">⬤ À contacter</option>
-          <option value="en_cours">⬤ En cours</option>
-          <option value="rdv">⬤ RDV pris</option>
-          <option value="pas_interesse">⬤ Pas intéressé</option>
-          <option value="chaud">⬤ Chaud</option>
+          <option value="__vide__">● Non contacté</option>
+          <option value="a_contacter">● À contacter</option>
+          <option value="en_cours">● En cours</option>
+          <option value="rdv">● RDV pris</option>
+          <option value="pas_interesse">● Pas intéressé</option>
+          <option value="chaud">● Chaud</option>
         </select>
       </div>
       <div class="cp-scroll" id="cpScroll"></div>
@@ -498,6 +498,8 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
     </div>
     <div class="mo-body">
       <div id="membresListe"></div>
+      <input type="file" id="importCacheMembreInput" accept=".json" style="display:none" onchange="importerCacheMembre(this.dataset.membreId,this.files[0])">
+      <button class="btn btn-v" onclick="exporterRapportEquipe()" style="width:100%;justify-content:center;margin-top:8px"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V10"/><path d="M12 19V4"/><path d="M20 19v-7"/></svg> Exporter tous les membres (1 fichier)</button>
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
         <div class="j-title">Nouveau membre</div>
         <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -597,7 +599,7 @@ const S = {
   lastAction:null, _undoTimer:null,
   effectifSelect:new Set(),
   cpStatutFilter:"__tous__",
-  membres:[], equipes:[], membreActifId:"default", statsVue:"membre",
+  membres:[], equipes:[], membreActifId:"default", statsVue:"membre", zoneEditId:null,
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -668,12 +670,20 @@ function renderMembresListe(){
     if(!membresEq.length) return "";
     const lignes=membresEq.map(m=>{
       const actif=m.id===S.membreActifId;
-      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid var(--line)">
-        <span style="flex:1;font-size:12.5px;font-weight:${actif?"700":"500"};color:${actif?"var(--ac-d)":"var(--ink)"}">${actif?"● ":""}${m.nom}</span>
+      const nbZone=(m.zoneCommunes||[]).length;
+      const zoneOuverte=S.zoneEditId===m.id;
+      return `<div style="border-bottom:1px solid var(--line)">
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 0">
+        <span style="flex:1;font-size:12.5px;font-weight:${actif?"700":"500"};color:${actif?"var(--ac-d)":"var(--ink)"}">${actif?"● ":""}${m.nom}${nbZone?` <span style="font-size:9.5px;color:#7c3aed;font-weight:600">(${nbZone} commune${nbZone>1?"s":""})</span>`:""}</span>
         ${actif?"<span style='font-size:10px;color:var(--ac-d);font-weight:700'>ACTIF</span>":`<button class="btn-xs" onclick="selectionnerMembre('${m.id}')">Sélectionner</button>`}
+        <button class="btn-xs" onclick="toggleZoneEditor('${m.id}')" title="Assigner une zone (communes)" style="${zoneOuverte?"background:var(--ac-l);color:var(--ac-d)":""}"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></button>
+        <button class="btn-xs" onclick="exporterCacheMembre('${m.id}')" title="Sauvegarder le cache de ce membre"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></button>
+        <button class="btn-xs" onclick="document.getElementById('importCacheMembreInput').dataset.membreId='${m.id}';document.getElementById('importCacheMembreInput').click()" title="Restaurer le cache de ce membre"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M7 14l5-5 5 5"/><path d="M5 3h14"/></svg></button>
         <button class="btn-xs" onclick="renommerMembre('${m.id}')" title="Renommer">✎</button>
         <button class="btn-xs" onclick="viderCacheMembre('${m.id}')" title="Vider le cache de ce membre (garde le membre, efface ses données)" style="color:#c2530f">⌫</button>
         <button class="btn-xs" onclick="supprimerMembre('${m.id}')" title="Supprimer">✕</button>
+      </div>
+      ${zoneOuverte?renderZoneEditor(m):""}
       </div>`;
     }).join("");
     const titreEq=eq.id?`<div style="display:flex;align-items:center;gap:6px;margin-top:10px"><div class="j-title" style="margin-bottom:0">${eq.nom}</div><button class="btn-xs" onclick="renommerEquipe('${eq.id}')" title="Renommer">✎</button><button class="btn-xs" onclick="supprimerEquipe('${eq.id}')" title="Supprimer l'équipe (les membres deviennent sans équipe)">✕</button></div>`
@@ -763,6 +773,86 @@ function ajouterEquipe(){
   toast(`Équipe "${nom}" créée.`);
 }
 window.ajouterEquipe=ajouterEquipe;
+
+function toggleZoneEditor(membreId){
+  S.zoneEditId=S.zoneEditId===membreId?null:membreId;
+  renderMembresListe();
+}
+window.toggleZoneEditor=toggleZoneEditor;
+
+function renderZoneEditor(m){
+  const zone=new Set(m.zoneCommunes||[]);
+  const liste=(S.communesListe||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom,"fr"));
+  return `<div style="padding:6px 0 8px 4px;border-left:2px solid var(--ac-l)">
+    <div style="font-size:10.5px;color:var(--ink-s);margin-bottom:5px">Communes assignées à ${m.nom} :</div>
+    <div style="max-height:130px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--r)">
+      ${liste.map(c=>`<label class="cmr"><input type="checkbox" ${zone.has(c.code)?"checked":""} onchange="toggleZoneCommune('${m.id}','${c.code}')"><span class="cmn">${c.nom}</span></label>`).join("")||"<div style='padding:8px;font-size:11px;color:var(--ink-s)'>Communes non chargées — ouvre d'abord une carte.</div>"}
+    </div>
+    <button class="btn btn-p" onclick="appliquerZoneMembre('${m.id}')" style="width:100%;justify-content:center;margin-top:6px;font-size:11px" ${zone.size?"":"disabled"}>Appliquer cette zone sur la carte</button>
+  </div>`;
+}
+
+function toggleZoneCommune(membreId,code){
+  const m=S.membres.find(x=>x.id===membreId); if(!m) return;
+  if(!m.zoneCommunes) m.zoneCommunes=[];
+  const idx=m.zoneCommunes.indexOf(code);
+  if(idx>=0) m.zoneCommunes.splice(idx,1); else m.zoneCommunes.push(code);
+  saveMembres(S.membres);
+  renderMembresListe();
+}
+window.toggleZoneCommune=toggleZoneCommune;
+
+// Applique la zone assignée à un membre comme filtre "Communes spécifiques" actif sur la carte —
+// pratique pour voir en un clic le terrain attribué à ce commercial.
+function appliquerZoneMembre(membreId){
+  const m=S.membres.find(x=>x.id===membreId); if(!m||!(m.zoneCommunes||[]).length) return;
+  S.communesSelect=new Set(m.zoneCommunes);
+  renderCommunesList(document.getElementById("communesSearch")?.value||"");
+  document.getElementById("communesClr").style.display="block";
+  renderCommunesPins(); render(); sauvegarderFiltres();
+  fermerGestionMembres();
+  toast(`Zone de ${m.nom} appliquée (${m.zoneCommunes.length} commune${m.zoneCommunes.length>1?"s":""}).`);
+}
+window.appliquerZoneMembre=appliquerZoneMembre;
+
+// Sauvegarde/restaure le suivi (statuts, notes, rappels) d'UN membre — pratique pour archiver avant
+// de vider, ou transférer les données d'un commercial vers un autre PC du manager.
+function exporterCacheMembre(membreId){
+  const m=S.membres.find(x=>x.id===membreId); if(!m) return;
+  const suivi=chargerSuiviMembre(membreId);
+  const nb=Object.keys(suivi).length;
+  if(!nb){ toast(`Aucune donnée à sauvegarder pour ${m.nom}.`); return; }
+  const blob=new Blob([JSON.stringify(suivi)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download=`suivi_${m.nom.replace(/[^a-z0-9]/gi,"_")}_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast(`Cache de ${m.nom} sauvegardé (${nb} entreprises).`);
+}
+window.exporterCacheMembre=exporterCacheMembre;
+
+async function importerCacheMembre(membreId,file){
+  if(!file||!membreId) return;
+  const m=S.membres.find(x=>x.id===membreId); if(!m) return;
+  try{
+    const text=await file.text();
+    const data=JSON.parse(text);
+    if(typeof data!=="object"||data===null||Array.isArray(data)) throw new Error("Format invalide.");
+    if(!confirm(`Restaurer ce fichier pour "${m.nom}" ? Ça fusionnera avec ses données actuelles (les entrées communes seront écrasées par le fichier importé).`)) return;
+    const actuel=chargerSuiviMembre(membreId);
+    const fusionne=Object.assign({},actuel,data);
+    localStorage.setItem(suiviKeyPour(membreId),JSON.stringify(fusionne));
+    if(membreId===S.membreActifId){ render(); refreshActiveView(); if(S.panelMode) renderPanel(); }
+    renderMembresListe();
+    toast(`Cache restauré pour ${m.nom} (${Object.keys(data).length} entreprises).`);
+  }catch(e){
+    console.error("[importerCacheMembre]",e);
+    toast("Fichier illisible — vérifie que c'est bien une sauvegarde de cache membre.");
+  }
+  document.getElementById("importCacheMembreInput").value="";
+}
+window.importerCacheMembre=importerCacheMembre;
 
 function renommerEquipe(id){
   const eq=S.equipes.find(x=>x.id===id); if(!eq) return;
@@ -2153,6 +2243,21 @@ window.cpSetStatut=cpSetStatut;
 // ════════════════════════════════════════════════════════════════
 // MODAL ENTREPRISE
 // ════════════════════════════════════════════════════════════════
+// Vérifie si d'autres membres (que celui actuellement actif) ont déjà un statut renseigné sur cette
+// entreprise — pour éviter que deux commerciaux se marchent dessus sans le savoir.
+function autresMembresTouches(siret){
+  const resultats=[];
+  S.membres.forEach(m=>{
+    if(m.id===S.membreActifId) return;
+    const s=chargerSuiviMembre(m.id);
+    const e=s[siret];
+    if(e&&e.statut&&e.statut!==""){
+      resultats.push({nom:m.nom,statutLabel:(ST[e.statut]||ST[""]).label.replace("●","").trim()});
+    }
+  });
+  return resultats;
+}
+
 async function ouvrirModal(siret){
   if(!siret) return;
   if(!S.full){ const ok=await chargerFull(); if(!ok) return; }
@@ -2166,7 +2271,10 @@ document.getElementById("moSub").innerHTML=
     `<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> ${[row.Adresse,communeNom].filter(Boolean).join(", ")}`+
     (row.Dirigeant_Nom?`<br><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg> ${row.Dirigeant_Nom}${row.Dirigeant_Role?" — "+row.Dirigeant_Role:""}`:"");
   const e=getEntry(siret);
+  const autres=autresMembresTouches(siret);
+  const banniereDoublon=autres.length?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:var(--r);padding:8px 10px;margin-bottom:11px;font-size:11.5px;color:#9a3412"><b>⚠ Déjà touchée par ${autres.length>1?"plusieurs membres":"un autre membre"} :</b><br>${autres.map(a=>`${a.nom} — ${a.statutLabel}`).join("<br>")}</div>`:"";
   document.getElementById("moBody").innerHTML=`
+    ${banniereDoublon}
     <div style="margin-bottom:11px">
       <div class="j-title" style="margin-bottom:6px">Statut</div>
       <div class="st-btns" id="moStBtns">
@@ -2905,7 +3013,41 @@ function updateStats(){
       <div class="db"><div class="db-t">Top communes contactées</div>${getTopCommunes(suiviF)}</div>
       <div class="db"><div class="db-t">Top secteurs NAF</div>${getTopNAF(suiviF)}</div>
       <div class="db"><div class="db-t">Journal — volume par type</div>${getJournalStats(suiviF)}</div>
-    </div>`;
+    </div>
+    ${S.membres.length>1?`<div class="db" style="margin-top:14px"><div class="db-t">Comparatif des membres</div>${getComparatifMembres()}</div>`:""}`;
+}
+
+// Tableau comparatif : pour chaque membre, ses propres totaux (indépendant du sélecteur de vue et
+// des filtres carte — vision globale de l'activité de chacun).
+function getComparatifMembres(){
+  const lignes=S.membres.map(m=>{
+    const s=chargerSuiviMembre(m.id);
+    const entries=Object.values(s);
+    const contactes=entries.filter(e=>e.statut&&e.statut!=="").length;
+    const rdv=entries.filter(e=>e.statut==="rdv").length;
+    const chaud=entries.filter(e=>e.statut==="chaud").length;
+    const pasInteresse=entries.filter(e=>e.statut==="pas_interesse").length;
+    const eq=S.equipes.find(x=>x.id===m.equipeId);
+    return {nom:m.nom,equipe:eq?eq.nom:"—",contactes,rdv,chaud,pasInteresse,actif:m.id===S.membreActifId};
+  }).sort((a,b)=>b.contactes-a.contactes);
+  return `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="border-bottom:2px solid var(--line)">
+      <th style="text-align:left;padding:6px 4px">Membre</th>
+      <th style="text-align:left;padding:6px 4px">Équipe</th>
+      <th style="text-align:right;padding:6px 4px">Contactées</th>
+      <th style="text-align:right;padding:6px 4px">RDV</th>
+      <th style="text-align:right;padding:6px 4px">Chaud</th>
+      <th style="text-align:right;padding:6px 4px">Pas intéressé</th>
+    </tr></thead>
+    <tbody>${lignes.map(l=>`<tr style="border-bottom:1px solid var(--line)${l.actif?";background:var(--ac-l)":""}">
+      <td style="padding:6px 4px;font-weight:${l.actif?"700":"500"}">${l.actif?"● ":""}${l.nom}</td>
+      <td style="padding:6px 4px;color:var(--ink-s)">${l.equipe}</td>
+      <td style="padding:6px 4px;text-align:right;font-family:var(--mono)">${l.contactes}</td>
+      <td style="padding:6px 4px;text-align:right;font-family:var(--mono);color:#22c55e">${l.rdv}</td>
+      <td style="padding:6px 4px;text-align:right;font-family:var(--mono);color:#f97316">${l.chaud}</td>
+      <td style="padding:6px 4px;text-align:right;font-family:var(--mono);color:#ef4444">${l.pasInteresse}</td>
+    </tr>`).join("")}</tbody>
+  </table>`;
 }
 
 function getTopCommunes(suiviF){
@@ -3001,6 +3143,36 @@ function exporterRapport(){
   toast(`${rows.length} entreprises exportées`);
 }
 window.exporterRapport=exporterRapport;
+
+// Rapport combiné : toutes les entreprises suivies par TOUS les membres, avec colonnes Membre/Équipe
+// pour distinguer qui a fait quoi. Une ligne par (entreprise, membre) — si deux membres ont touché la
+// même entreprise, elle apparaît deux fois, une par membre, pour ne rien perdre.
+function exporterRapportEquipe(){
+  if(!S.membres.length){ alert("Aucun membre."); return; }
+  const rows=[];
+  S.membres.forEach(m=>{
+    const eq=S.equipes.find(x=>x.id===m.equipeId);
+    const suivi=chargerSuiviMembre(m.id);
+    Object.keys(suivi).forEach(siret=>{
+      const e=suivi[siret]; const st=ST[e.statut||""];
+      const row=findFull(siret);
+      rows.push({
+        Membre:m.nom, Equipe:eq?eq.nom:"",
+        SIRET:siret,Nom:row?.Nom||"—",Commune:row?.Commune||"—",Activite:row?.Activite||"—",
+        Statut:st?.label||e.statut||"—",Rappel:e.rappel||"",
+        Nb_entrees:(e.journal||[]).length,
+        Derniere_action:e.date?new Date(e.date).toLocaleDateString("fr-FR"):"",
+        Journal:(e.journal||[]).map(j=>`${new Date(j.date).toLocaleDateString("fr-FR")} [${j.type}] ${j.texte}`).join(" | "),
+      });
+    });
+  });
+  if(!rows.length){ alert("Aucun suivi enregistré chez aucun membre."); return; }
+  const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"Suivi équipe");
+  XLSX.writeFile(wb,`rapport_equipe_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`${rows.length} lignes exportées (${S.membres.length} membres).`);
+}
+window.exporterRapportEquipe=exporterRapportEquipe;
 
 // ════════════════════════════════════════════════════════════════
 // RECHERCHE GLOBALE
