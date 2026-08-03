@@ -556,6 +556,14 @@ const LS_COMMERCIAL = "mel_commercial_v1";
 const LS_MEMBRES = "mel_membres_v1";
 const LS_EQUIPES = "mel_equipes_v1";
 const LS_MEMBRE_ACTIF = "mel_membre_actif_v1";
+
+// Échappe une valeur avant insertion dans du HTML (innerHTML, attributs, tooltips Leaflet).
+// Indispensable pour tout texte venant des données (noms d'entreprises, dirigeants, adresses)
+// ou saisi par l'utilisateur (noms de membres/équipes, journal) — un nom contenant < > " ' &
+// casserait le rendu, voire injecterait du HTML.
+function esc(v){
+  return String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
 const ST = {
   "":             {label:"● Non contacté",  color:"#94a3b8", bg:"#f1f5f9", mc:"#94a3b8"},
   "a_contacter":  {label:"● À contacter",   color:"#3b82f6", bg:"#eff6ff", mc:"#3b82f6"},
@@ -610,9 +618,9 @@ const S = {
 // tout reste local sur le poste du manager qui bascule entre les membres)
 // ════════════════════════════════════════════════════════════════
 function loadMembres(){ try{ return JSON.parse(localStorage.getItem(LS_MEMBRES)||"[]"); }catch(e){ return []; } }
-function saveMembres(list){ try{ localStorage.setItem(LS_MEMBRES,JSON.stringify(list)); }catch(e){} }
+function saveMembres(list){ try{ const j=JSON.stringify(list); localStorage.setItem(LS_MEMBRES,j); sauvegardeSecours(LS_MEMBRES,j); }catch(e){} }
 function loadEquipes(){ try{ return JSON.parse(localStorage.getItem(LS_EQUIPES)||"[]"); }catch(e){ return []; } }
-function saveEquipes(list){ try{ localStorage.setItem(LS_EQUIPES,JSON.stringify(list)); }catch(e){} }
+function saveEquipes(list){ try{ const j=JSON.stringify(list); localStorage.setItem(LS_EQUIPES,j); sauvegardeSecours(LS_EQUIPES,j); }catch(e){} }
 function getMembreActifId(){ try{ return localStorage.getItem(LS_MEMBRE_ACTIF)||""; }catch(e){ return ""; } }
 function setMembreActifIdStockage(id){ try{ localStorage.setItem(LS_MEMBRE_ACTIF,id); }catch(e){} }
 
@@ -661,7 +669,7 @@ window.fermerGestionMembres=fermerGestionMembres;
 function renderMembresListe(){
   // Rafraîchit aussi le select d'équipe du formulaire "nouveau membre"
   const selEq=document.getElementById("nouveauMembreEquipe");
-  selEq.innerHTML="<option value=''>Sans équipe</option>"+S.equipes.map(eq=>`<option value="${eq.id}">${eq.nom}</option>`).join("");
+  selEq.innerHTML="<option value=''>Sans équipe</option>"+S.equipes.map(eq=>`<option value="${eq.id}">${esc(eq.nom)}</option>`).join("");
 
   const box=document.getElementById("membresListe");
   const groupes=[{id:"",nom:"Sans équipe"}].concat(S.equipes);
@@ -674,7 +682,7 @@ function renderMembresListe(){
       const zoneOuverte=S.zoneEditId===m.id;
       return `<div style="border-bottom:1px solid var(--line)">
       <div style="display:flex;align-items:center;gap:6px;padding:6px 0">
-        <span style="flex:1;font-size:12.5px;font-weight:${actif?"700":"500"};color:${actif?"var(--ac-d)":"var(--ink)"}">${actif?"● ":""}${m.nom}${nbZone?` <span style="font-size:9.5px;color:#7c3aed;font-weight:600">(${nbZone} commune${nbZone>1?"s":""})</span>`:""}</span>
+        <span style="flex:1;font-size:12.5px;font-weight:${actif?"700":"500"};color:${actif?"var(--ac-d)":"var(--ink)"}">${actif?"● ":""}${esc(m.nom)}${nbZone?` <span style="font-size:9.5px;color:#7c3aed;font-weight:600">(${nbZone} commune${nbZone>1?"s":""})</span>`:""}</span>
         ${actif?"<span style='font-size:10px;color:var(--ac-d);font-weight:700'>ACTIF</span>":`<button class="btn-xs" onclick="selectionnerMembre('${m.id}')">Sélectionner</button>`}
         <button class="btn-xs" onclick="toggleZoneEditor('${m.id}')" title="Assigner une zone (communes)" style="${zoneOuverte?"background:var(--ac-l);color:var(--ac-d)":""}"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></button>
         <button class="btn-xs" onclick="exporterCacheMembre('${m.id}')" title="Sauvegarder le cache de ce membre"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></button>
@@ -686,8 +694,8 @@ function renderMembresListe(){
       ${zoneOuverte?renderZoneEditor(m):""}
       </div>`;
     }).join("");
-    const titreEq=eq.id?`<div style="display:flex;align-items:center;gap:6px;margin-top:10px"><div class="j-title" style="margin-bottom:0">${eq.nom}</div><button class="btn-xs" onclick="renommerEquipe('${eq.id}')" title="Renommer">✎</button><button class="btn-xs" onclick="supprimerEquipe('${eq.id}')" title="Supprimer l'équipe (les membres deviennent sans équipe)">✕</button></div>`
-      :`<div class="j-title" style="margin-top:10px">${eq.nom}</div>`;
+    const titreEq=eq.id?`<div style="display:flex;align-items:center;gap:6px;margin-top:10px"><div class="j-title" style="margin-bottom:0">${esc(eq.nom)}</div><button class="btn-xs" onclick="renommerEquipe('${eq.id}')" title="Renommer">✎</button><button class="btn-xs" onclick="supprimerEquipe('${eq.id}')" title="Supprimer l'équipe (les membres deviennent sans équipe)">✕</button></div>`
+      :`<div class="j-title" style="margin-top:10px">${esc(eq.nom)}</div>`;
     return titreEq+lignes;
   }).join("")||"<div style='padding:10px;font-size:11px;color:var(--ink-s)'>Aucun membre.</div>";
 }
@@ -732,6 +740,7 @@ function supprimerMembre(id){
   const m=S.membres.find(x=>x.id===id); if(!m) return;
   if(!confirm(`Supprimer "${m.nom}" ? Sa sauvegarde (statuts, notes) sera définitivement perdue.`)) return;
   try{ localStorage.removeItem(suiviKeyPour(id)); }catch(e){}
+  supprimerSauvegardeSecours(suiviKeyPour(id));
   S.membres=S.membres.filter(x=>x.id!==id);
   saveMembres(S.membres);
   if(S.membreActifId===id) selectionnerMembre(S.membres[0].id);
@@ -744,6 +753,7 @@ function viderCacheMembre(id){
   const m=S.membres.find(x=>x.id===id); if(!m) return;
   if(!confirm(`⚠️ Vider le cache de "${m.nom}" ?\n\nTous ses statuts, notes et rappels seront définitivement effacés. Le membre reste dans la liste, mais repart de zéro.\n\nCette action est irréversible.`)) return;
   try{ localStorage.removeItem(suiviKeyPour(id)); }catch(e){}
+  supprimerSauvegardeSecours(suiviKeyPour(id));
   if(id===S.membreActifId){ render(); refreshActiveView(); if(S.panelMode) renderPanel(); }
   renderMembresListe();
   toast(`Cache de "${m.nom}" vidé.`);
@@ -755,7 +765,7 @@ function viderToutLeCache(){
   const nb=S.membres.length;
   if(!confirm(`⚠️ ATTENTION — Vider le cache de TOUS les membres (${nb}) ?\n\nTous les statuts, notes et rappels de TOUTE l'équipe seront définitivement effacés, sans exception.\n\nCette action est IRRÉVERSIBLE.`)) return;
   if(!confirm(`Dernière confirmation : tu es sûr ? Il n'y aura aucun moyen de récupérer ces données ensuite.`)) return;
-  S.membres.forEach(m=>{ try{ localStorage.removeItem(suiviKeyPour(m.id)); }catch(e){} });
+  S.membres.forEach(m=>{ try{ localStorage.removeItem(suiviKeyPour(m.id)); }catch(e){} supprimerSauvegardeSecours(suiviKeyPour(m.id)); });
   render(); refreshActiveView(); if(S.panelMode) renderPanel();
   renderMembresListe();
   toast(`Cache de tous les membres (${nb}) vidé.`);
@@ -784,9 +794,9 @@ function renderZoneEditor(m){
   const zone=new Set(m.zoneCommunes||[]);
   const liste=(S.communesListe||[]).slice().sort((a,b)=>a.nom.localeCompare(b.nom,"fr"));
   return `<div style="padding:6px 0 8px 4px;border-left:2px solid var(--ac-l)">
-    <div style="font-size:10.5px;color:var(--ink-s);margin-bottom:5px">Communes assignées à ${m.nom} :</div>
+    <div style="font-size:10.5px;color:var(--ink-s);margin-bottom:5px">Communes assignées à ${esc(m.nom)} :</div>
     <div style="max-height:130px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--r)">
-      ${liste.map(c=>`<label class="cmr"><input type="checkbox" ${zone.has(c.code)?"checked":""} onchange="toggleZoneCommune('${m.id}','${c.code}')"><span class="cmn">${c.nom}</span></label>`).join("")||"<div style='padding:8px;font-size:11px;color:var(--ink-s)'>Communes non chargées — ouvre d'abord une carte.</div>"}
+      ${liste.map(c=>`<label class="cmr"><input type="checkbox" ${zone.has(c.code)?"checked":""} onchange="toggleZoneCommune('${m.id}','${c.code}')"><span class="cmn">${esc(c.nom)}</span></label>`).join("")||"<div style='padding:8px;font-size:11px;color:var(--ink-s)'>Communes non chargées — ouvre d'abord une carte.</div>"}
     </div>
     <button class="btn btn-p" onclick="appliquerZoneMembre('${m.id}')" style="width:100%;justify-content:center;margin-top:6px;font-size:11px" ${zone.size?"":"disabled"}>Appliquer cette zone sur la carte</button>
   </div>`;
@@ -842,7 +852,9 @@ async function importerCacheMembre(membreId,file){
     if(!confirm(`Restaurer ce fichier pour "${m.nom}" ? Ça fusionnera avec ses données actuelles (les entrées communes seront écrasées par le fichier importé).`)) return;
     const actuel=chargerSuiviMembre(membreId);
     const fusionne=Object.assign({},actuel,data);
-    localStorage.setItem(suiviKeyPour(membreId),JSON.stringify(fusionne));
+    const jsonFusionne=JSON.stringify(fusionne);
+    localStorage.setItem(suiviKeyPour(membreId),jsonFusionne);
+    sauvegardeSecours(suiviKeyPour(membreId),jsonFusionne);
     if(membreId===S.membreActifId){ render(); refreshActiveView(); if(S.panelMode) renderPanel(); }
     renderMembresListe();
     toast(`Cache restauré pour ${m.nom} (${Object.keys(data).length} entreprises).`);
@@ -877,9 +889,31 @@ window.supprimerEquipe=supprimerEquipe;
 function loadSuivi(){ try{ return JSON.parse(localStorage.getItem(suiviKeyPour(S.membreActifId))||"{}"); }catch(e){ return {}; } }
 function saveSuivi(d){
   try{
-    localStorage.setItem(suiviKeyPour(S.membreActifId),JSON.stringify(d));
+    const json=JSON.stringify(d);
+    localStorage.setItem(suiviKeyPour(S.membreActifId),json);
+    sauvegardeSecours(suiviKeyPour(S.membreActifId),json);
     checkLSSize();
   }catch(e){ toast("Stockage plein — supprime des données"); }
+}
+
+// ── Sauvegarde de secours (IndexedDB) ────────────────────────────────────────
+// Le localStorage peut être vidé par le navigateur (nettoyage, "libérer de l'espace") alors
+// qu'IndexedDB est marqué plus durable. On y recopie donc chaque écriture du suivi, des membres
+// et des équipes (écriture asynchrone, sans impact sur la fluidité). Au démarrage, si une clé a
+// disparu du localStorage mais existe dans la copie de secours, on la restaure automatiquement.
+function sauvegardeSecours(cle,json){ idbPut("suivi",cle,json); }
+function supprimerSauvegardeSecours(cle){ idbDel("suivi",cle); }
+async function restaurerSauvegardeSecours(){
+  try{
+    const entries=await idbEntries("suivi");
+    let nb=0;
+    entries.forEach(([cle,val])=>{
+      if(typeof val==="string"&&localStorage.getItem(cle)===null){
+        try{ localStorage.setItem(cle,val); nb++; }catch(e){}
+      }
+    });
+    return nb;
+  }catch(e){ console.warn("[restaurerSauvegardeSecours]",e); return 0; }
 }
 function getEntry(siret){ return loadSuivi()[siret]||{statut:"",journal:[],rappel:""}; }
 function saveEntry(siret,e){ const s=loadSuivi(); s[siret]=e; saveSuivi(s); }
@@ -1002,7 +1036,7 @@ function switchTab(tab){
 // ════════════════════════════════════════════════════════════════
 // INIT CARTE
 // ════════════════════════════════════════════════════════════════
-document.addEventListener("DOMContentLoaded", function(){
+document.addEventListener("DOMContentLoaded", async function(){
   S.map=L.map("map",{zoomControl:true}).setView([50.629,3.057],10);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
     attribution:"&copy; OpenStreetMap &copy; CARTO",maxZoom:19
@@ -1015,7 +1049,22 @@ document.addEventListener("DOMContentLoaded", function(){
   restaurerFiltres();
   initKeyboard();
   checkLSSize();
+  // Si le navigateur a vidé le localStorage (nettoyage auto...), on restaure suivi/membres/équipes
+  // depuis la copie de secours IndexedDB AVANT d'initialiser les membres.
+  const nbRestaure=await restaurerSauvegardeSecours();
   initMembres();
+  if(nbRestaure) toast(`Sauvegarde de secours restaurée (${nbRestaure} élément${nbRestaure>1?"s":""}) — le localStorage avait été vidé.`);
+  // Si un autre onglet du même navigateur modifie le suivi/les membres, on resynchronise
+  // l'affichage et on prévient — sinon deux onglets ouverts peuvent s'écraser silencieusement.
+  window.addEventListener("storage",function(ev){
+    if(!ev.key) return;
+    if(ev.key.indexOf(LS_SUIVI)!==0&&ev.key!==LS_MEMBRES&&ev.key!==LS_EQUIPES) return;
+    S.membres=loadMembres(); S.equipes=loadEquipes();
+    if(!S.membres.some(m=>m.id===S.membreActifId)&&S.membres.length) S.membreActifId=S.membres[0].id;
+    updateCommercialPill();
+    if(S.map&&S.rows.length){ render(); refreshActiveView(); if(S.panelMode) renderPanel(); }
+    toast("⚠ Données modifiées dans un autre onglet — affichage resynchronisé.");
+  });
   updateCpToggleBtn();
   updateRappelsBadge();
   loadCommunes().then(function(){
@@ -1056,7 +1105,7 @@ function renderCommunesList(filtre){
   const box=document.getElementById("communesListBox");
   const nf=filtre?norm(filtre):"";
   const liste=nf?S.communesListe.filter(c=>norm(c.nom).includes(nf)):S.communesListe;
-  box.innerHTML=liste.map(c=>`<label class="cmr"><input type="checkbox" ${S.communesSelect.has(c.code)?"checked":""} onchange="toggleCommuneSel('${c.code}')"><span class="cmn">${c.nom}</span></label>`).join("")||"<div style='padding:10px;font-size:11px;color:var(--ink-s)'>Aucune commune.</div>";
+  box.innerHTML=liste.map(c=>`<label class="cmr"><input type="checkbox" ${S.communesSelect.has(c.code)?"checked":""} onchange="toggleCommuneSel('${c.code}')"><span class="cmn">${esc(c.nom)}</span></label>`).join("")||"<div style='padding:10px;font-size:11px;color:var(--ink-s)'>Aucune commune.</div>";
 }
 function onCommunesSearch(v){ renderCommunesList(v); }
 window.onCommunesSearch=onCommunesSearch;
@@ -1105,7 +1154,7 @@ function renderCommunesPins(){
     const st=ST[suivi[r.siret]?.statut||""]||ST[""];
     const mk=L.circleMarker(pos,{radius:5,color:darken(st.mc),fillColor:st.mc,fillOpacity:.9,weight:1.3}).addTo(S.map);
     const full=findFull(r.siret);
-    mk.bindTooltip(full?.Nom||"—",{direction:"top"});
+    mk.bindTooltip(esc(full?.Nom||"—"),{direction:"top"});
     mk.on("click",e=>{ L.DomEvent.stopPropagation(e); ouvrirModal(r.siret); });
     S.communesMarkers[r.siret]=mk; mk.bringToFront();
   });
@@ -1115,13 +1164,13 @@ function renderCommunesPins(){
 // ════════════════════════════════════════════════════════════════
 // MÉMORISATION FICHIER (File System Access API)
 // ════════════════════════════════════════════════════════════════
-const IDB_NAME="mel_pro_v2", IDB_VER=3;
+const IDB_NAME="mel_pro_v2", IDB_VER=4;
 function openIDB(){
   return new Promise((res,rej)=>{
     const r=indexedDB.open(IDB_NAME,IDB_VER);
     r.onupgradeneeded=e=>{
       const db=e.target.result;
-      ["handles","geocode"].forEach(s=>{ if(!db.objectStoreNames.contains(s)) db.createObjectStore(s); });
+      ["handles","geocode","suivi"].forEach(s=>{ if(!db.objectStoreNames.contains(s)) db.createObjectStore(s); });
     };
     r.onsuccess=e=>res(e.target.result); r.onerror=rej;
   });
@@ -1138,6 +1187,29 @@ function idbPut(store,key,val){
   })).catch(e=>{ console.error("[idbPut] échec d'écriture:",e); return false; });
 }
 async function idbGet(store,key){ try{ const db=await openIDB(); return new Promise((res,rej)=>{ const r=db.transaction(store,"readonly").objectStore(store).get(key); r.onsuccess=e=>res(e.target.result); r.onerror=rej; }); }catch(e){ return null; } }
+function idbDel(store,key){
+  return openIDB().then(db=>new Promise((resolve,reject)=>{
+    const tx=db.transaction(store,"readwrite");
+    tx.objectStore(store).delete(key);
+    tx.oncomplete=()=>resolve(true); tx.onerror=()=>reject(tx.error);
+  })).catch(e=>{ console.error("[idbDel]",e); return false; });
+}
+// Renvoie toutes les paires [clé,valeur] d'un store — utilisé au démarrage pour restaurer la
+// sauvegarde de secours du suivi si le localStorage a été vidé.
+async function idbEntries(store){
+  try{
+    const db=await openIDB();
+    return new Promise((res,rej)=>{
+      const os=db.transaction(store,"readonly").objectStore(store);
+      const rKeys=os.getAllKeys(), rVals=os.getAll();
+      let keys=null,vals=null;
+      const done=()=>{ if(keys&&vals) res(keys.map((k,i)=>[k,vals[i]])); };
+      rKeys.onsuccess=e=>{ keys=e.target.result; done(); };
+      rVals.onsuccess=e=>{ vals=e.target.result; done(); };
+      rKeys.onerror=rej; rVals.onerror=rej;
+    });
+  }catch(e){ return []; }
+}
 
 // Geocache dans IndexedDB (pas de limite 5MB)
 async function loadGeoCache(){ return (await idbGet("geocode","all"))||{}; }
@@ -1857,7 +1929,7 @@ function render(){
     // Label % si contactés et assez zoomé
     if(hasFiltresActifs&&zoom>=11&&contacted>0&&!dimmed){
       const pct=Math.round(contacted/total*100);
-      marker.bindTooltip(`${c.nom}<br><b>${pct}%</b> contacté`,{permanent:false,direction:"top",className:"leaflet-tooltip"});
+      marker.bindTooltip(`${esc(c.nom)}<br><b>${pct}%</b> contacté`,{permanent:false,direction:"top",className:"leaflet-tooltip"});
     }
     marker.addTo(S.map);
     marker._insee=insee;
@@ -2041,8 +2113,8 @@ function renderPanel(){
     const geo=S.geoCache[siret]?`<span title="Géocodé" style="color:#22c55e"><svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></span>`:"";
     return `<div class="cp-row" style="${bordureStatut(e.statut)}">
       <div style="flex:1" onclick="ouvrirModal('${siret}')">
-        <div class="cp-nom">${geo}${(row.Nom||"—").substring(0,28)}</div>
-        <div class="cp-naf">${(row.Activite||row.Code_NAF||"").substring(0,32)}</div>
+        <div class="cp-nom">${geo}${esc((row.Nom||"—").substring(0,28))}</div>
+        <div class="cp-naf">${esc((row.Activite||row.Code_NAF||"").substring(0,32))}</div>
       </div>
       <select class="cp-sel" style="background:${st.bg};color:${st.color}" onchange="cpSetStatut('${siret}',this)">${opts}</select>
     </div>`;
@@ -2070,8 +2142,8 @@ function renderTourPanel(){
     const distLabel=r.distM<1000?`${Math.round(r.distM)} m`:`${(r.distM/1000).toFixed(1)} km`;
     return `<div class="cp-row" style="${bordureStatut(e.statut)}">
       <div style="flex:1" onclick="ouvrirModal('${r.siret}')">
-        <div class="cp-nom"><span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#7c3aed;color:#fff;font-family:var(--mono);font-size:9px;font-weight:700;margin-right:5px">${r.ordre}</span><span style="font-family:var(--mono);font-size:9.5px;color:var(--ac-d);margin-right:4px">${distLabel}</span>${(r.nom||"—").substring(0,24)}</div>
-        <div class="cp-naf">${(r.activite||"").substring(0,32)}</div>
+        <div class="cp-nom"><span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#7c3aed;color:#fff;font-family:var(--mono);font-size:9px;font-weight:700;margin-right:5px">${r.ordre}</span><span style="font-family:var(--mono);font-size:9.5px;color:var(--ac-d);margin-right:4px">${distLabel}</span>${esc((r.nom||"—").substring(0,24))}</div>
+        <div class="cp-naf">${esc((r.activite||"").substring(0,32))}</div>
       </div>
       <select class="cp-sel" style="background:${st.bg};color:${st.color}" onchange="cpSetStatut('${r.siret}',this)">${opts}</select>
     </div>`;
@@ -2116,8 +2188,8 @@ function renderRayonPanel(){
     const distLabel=r.distKm<1?`${Math.round(r.distKm*1000)} m`:`${r.distKm.toFixed(1)} km`;
     return `<div class="cp-row" style="${bordureStatut(e.statut)}">
       <div style="flex:1" onclick="ouvrirModal('${r.siret}')">
-        <div class="cp-nom"><span style="font-family:var(--mono);font-size:9.5px;color:var(--ac-d);margin-right:4px">${distLabel}</span>${(r.nom||"—").substring(0,26)}</div>
-        <div class="cp-naf">${(r.activite||"").substring(0,32)}</div>
+        <div class="cp-nom"><span style="font-family:var(--mono);font-size:9.5px;color:var(--ac-d);margin-right:4px">${distLabel}</span>${esc((r.nom||"—").substring(0,26))}</div>
+        <div class="cp-naf">${esc((r.activite||"").substring(0,32))}</div>
       </div>
       <select class="cp-sel" style="background:${st.bg};color:${st.color}" onchange="cpSetStatut('${r.siret}',this)">${opts}</select>
     </div>`;
@@ -2170,7 +2242,7 @@ function renderTourMarkers(){
     const pos=positions[r.siret]; if(!pos) return;
     const st=ST[suivi[r.siret]?.statut||""]||ST[""];
     const mk=L.circleMarker(pos,{radius:6,color:darken(st.mc),fillColor:st.mc,fillOpacity:.95,weight:1.5}).addTo(S.map);
-    mk.bindTooltip(`${r.ordre}. ${r.nom||"—"}`,{direction:"top"});
+    mk.bindTooltip(`${r.ordre}. ${esc(r.nom||"—")}`,{direction:"top"});
     mk.on("click",e=>{ L.DomEvent.stopPropagation(e); ouvrirModal(r.siret); });
     S.tourMarkers[r.siret]=mk; mk.bringToFront();
   });
@@ -2221,7 +2293,7 @@ function renderRayonPins(){
     const st=ST[suivi[r.siret]?.statut||""]||ST[""];
     const mk=L.circleMarker(pos,{radius:5,color:darken(st.mc),fillColor:st.mc,fillOpacity:.9,weight:1.3}).addTo(S.map);
     const full=findFull(r.siret);
-    mk.bindTooltip(full?.Nom||"—",{direction:"top"});
+    mk.bindTooltip(esc(full?.Nom||"—"),{direction:"top"});
     mk.on("click",e=>{ L.DomEvent.stopPropagation(e); ouvrirModal(r.siret); });
     S.rayonMarkers[r.siret]=mk; mk.bringToFront();
   });
@@ -2267,12 +2339,12 @@ async function ouvrirModal(siret){
   // Commune depuis API geo si non disponible dans le JSON
 const communeNom=row.Commune||(S.communes[row.Code_INSEE]?.nom||"");
 document.getElementById("moSub").innerHTML=
-    `<span style="color:var(--ac-d);font-size:11px">${row.Code_NAF||""}</span> ${row.Activite||NAF_LABELS[row.Code_NAF]||""}<br>`+
-    `<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> ${[row.Adresse,communeNom].filter(Boolean).join(", ")}`+
-    (row.Dirigeant_Nom?`<br><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg> ${row.Dirigeant_Nom}${row.Dirigeant_Role?" — "+row.Dirigeant_Role:""}`:"");
+    `<span style="color:var(--ac-d);font-size:11px">${esc(row.Code_NAF||"")}</span> ${esc(row.Activite||NAF_LABELS[row.Code_NAF]||"")}<br>`+
+    `<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> ${esc([row.Adresse,communeNom].filter(Boolean).join(", "))}`+
+    (row.Dirigeant_Nom?`<br><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg> ${esc(row.Dirigeant_Nom)}${row.Dirigeant_Role?" — "+esc(row.Dirigeant_Role):""}`:"");
   const e=getEntry(siret);
   const autres=autresMembresTouches(siret);
-  const banniereDoublon=autres.length?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:var(--r);padding:8px 10px;margin-bottom:11px;font-size:11.5px;color:#9a3412"><b>⚠ Déjà touchée par ${autres.length>1?"plusieurs membres":"un autre membre"} :</b><br>${autres.map(a=>`${a.nom} — ${a.statutLabel}`).join("<br>")}</div>`:"";
+  const banniereDoublon=autres.length?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:var(--r);padding:8px 10px;margin-bottom:11px;font-size:11.5px;color:#9a3412"><b>⚠ Déjà touchée par ${autres.length>1?"plusieurs membres":"un autre membre"} :</b><br>${autres.map(a=>`${esc(a.nom)} — ${esc(a.statutLabel)}`).join("<br>")}</div>`:"";
   document.getElementById("moBody").innerHTML=`
     ${banniereDoublon}
     <div style="margin-bottom:11px">
@@ -2301,8 +2373,8 @@ document.getElementById("moSub").innerHTML=
       <a href="https://www.societe.com/cgi-bin/search?champs=${encodeURIComponent(row.Nom||"")}" target="_blank"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><line x1="9" y1="7" x2="9" y2="7.01"/><line x1="15" y1="7" x2="15" y2="7.01"/><line x1="9" y1="11" x2="9" y2="11.01"/><line x1="15" y1="11" x2="15" y2="11.01"/><line x1="9" y1="15" x2="9" y2="15.01"/><line x1="15" y1="15" x2="15" y2="15.01"/></svg> Societe.com</a>
       ${geoLink}
      </div>
-     ${row.Numero_TVA?`<span class="mo-tva">TVA: ${row.Numero_TVA}</span>`:""}
-     ${row.Effectif_tranche_libelle?`<span style="font-size:11px;color:var(--ink-s)"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.3 3-6 7-6s7 2.7 7 6"/><path d="M16 8.5a3 3 0 1 1 3.5 3"/><path d="M22 20c0-2.6-1.9-4.8-4.5-5.6"/></svg> ${row.Effectif_tranche_libelle}</span>`:""}`;
+     ${row.Numero_TVA?`<span class="mo-tva">TVA: ${esc(row.Numero_TVA)}</span>`:""}
+     ${row.Effectif_tranche_libelle?`<span style="font-size:11px;color:var(--ink-s)"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.3 3-6 7-6s7 2.7 7 6"/><path d="M16 8.5a3 3 0 1 1 3.5 3"/><path d="M22 20c0-2.6-1.9-4.8-4.5-5.6"/></svg> ${esc(row.Effectif_tranche_libelle)}</span>`:""}`;
   document.getElementById("mo").classList.add("open");
 }
 function fermerModal(){ document.getElementById("mo").classList.remove("open"); }
@@ -2314,7 +2386,7 @@ function renderJournal(siret){
   return entries.map(j=>{
     const d=new Date(j.date); const ds=`${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}/${d.getFullYear()}`;
     return `<div class="j-e"><span class="j-ic">${JT_ICO[j.type]||JT_ICO.note}</span>
-      <div class="j-b"><div class="j-m"><span class="j-tag">${j.type}</span><span class="j-dt">${ds}${j.commercial?" · "+j.commercial:""}</span></div><div class="j-tx">${j.texte}</div></div>
+      <div class="j-b"><div class="j-m"><span class="j-tag">${esc(j.type)}</span><span class="j-dt">${ds}${j.commercial?" · "+esc(j.commercial):""}</span></div><div class="j-tx">${esc(j.texte)}</div></div>
       <button class="j-del" onclick="delJ('${siret}','${j.id}')">✕</button></div>`;
   }).join("");
 }
@@ -2387,7 +2459,7 @@ function peuplerEffectifList(){
     return;
   }
   const presentes=EFFECTIF_ORDRE.filter(v=>counts[v]>0);
-  box.innerHTML=presentes.map(v=>`<label class="cmr"><input type="checkbox" ${S.effectifSelect.has(v)?"checked":""} onchange="toggleEffectifSel('${v.replace(/'/g,"\\'")}')"><span class="cmn">${v}</span><span class="cmc">${counts[v].toLocaleString("fr-FR")}</span></label>`).join("")||"<div style='padding:10px;font-size:11px;color:var(--ink-s)'>Donnée indisponible.</div>";
+  box.innerHTML=presentes.map(v=>`<label class="cmr"><input type="checkbox" ${S.effectifSelect.has(v)?"checked":""} onchange="toggleEffectifSel('${v.replace(/'/g,"\\'")}')"><span class="cmn">${esc(v)}</span><span class="cmc">${counts[v].toLocaleString("fr-FR")}</span></label>`).join("")||"<div style='padding:10px;font-size:11px;color:var(--ink-s)'>Donnée indisponible.</div>";
 }
 
 function toggleEffectifSel(val){
@@ -2631,7 +2703,7 @@ async function lancerTournee(){
     S.map.setView([lat,lon],zoom);
     S.tourCircle=L.circle([lat,lon],{radius:radiusM,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:.08,weight:2,dashArray:"5,5",interactive:false}).addTo(S.map);
     if(S.tourCircle._path) S.tourCircle._path.style.pointerEvents="none";
-    S.tourMarker=L.circleMarker([lat,lon],{radius:7,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:1,weight:2,interactive:false}).addTo(S.map).bindTooltip(label);
+    S.tourMarker=L.circleMarker([lat,lon],{radius:7,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:1,weight:2,interactive:false}).addTo(S.map).bindTooltip(esc(label));
     if(S.tourMarker._path) S.tourMarker._path.style.pointerEvents="none";
 
     // Communes proches du point (marge au-delà du rayon pour couvrir les frontières de commune),
@@ -2763,8 +2835,8 @@ function imprimerTournee(){
     return `<tr>
       <td style="text-align:center"><span class="ps-ordre">${r.ordre}</span></td>
       <td><span class="ps-check"></span></td>
-      <td><b>${(r.nom||"—").substring(0,40)}</b><br><span style="color:#666">${(r.activite||"").substring(0,45)}</span></td>
-      <td>${adresse.substring(0,55)}</td>
+      <td><b>${esc((r.nom||"—").substring(0,40))}</b><br><span style="color:#666">${esc((r.activite||"").substring(0,45))}</span></td>
+      <td>${esc(adresse.substring(0,55))}</td>
       <td>${distLabel}</td>
       <td>${st.label.replace("●","").trim()}</td>
       <td></td>
@@ -2774,9 +2846,9 @@ function imprimerTournee(){
     <div class="ps-head">
       <div>
         <div class="ps-title">Tournée terrain</div>
-        <div class="ps-sub">${S.tour.label}<br>Rayon ${S.tour.radiusM} m · ${S.tour.results.length} entreprises</div>
+        <div class="ps-sub">${esc(S.tour.label)}<br>Rayon ${S.tour.radiusM} m · ${S.tour.results.length} entreprises</div>
       </div>
-      <div class="ps-meta">${today}${commercial?"<br>Commercial : "+commercial:""}</div>
+      <div class="ps-meta">${today}${commercial?"<br>Commercial : "+esc(commercial):""}</div>
     </div>
     <table class="ps-table">
       <thead><tr><th>N°</th><th>Fait</th><th>Entreprise</th><th>Adresse</th><th>Distance</th><th>Statut</th><th>Note</th></tr></thead>
@@ -2842,11 +2914,11 @@ async function renderListe(){
     return `<tr class="${isSel?"selected":""}">
       <td><input type="checkbox" ${isSel?"checked":""} onchange="toggleLtSel('${siret}',this)"></td>
       <td><select class="st-sel" style="background:${st.bg};color:${st.color}" onchange="ltSetStatut('${siret}',this)">${opts}</select></td>
-      <td class="td-nom" title="${row.Nom||""}">${(row.Nom||"—").substring(0,28)}${rap}</td>
-      <td class="td-s">${row.Commune||"—"}</td>
-      <td class="td-s" title="${row.Activite||""}">${(row.Activite||row.Code_NAF||"—").substring(0,28)}</td>
-      <td class="td-s">${(row.Adresse||"—").substring(0,32)}</td>
-      <td class="td-s">${(row.Dirigeant_Nom||"—").substring(0,20)}</td>
+      <td class="td-nom" title="${esc(row.Nom||"")}">${esc((row.Nom||"—").substring(0,28))}${rap}</td>
+      <td class="td-s">${esc(row.Commune||"—")}</td>
+      <td class="td-s" title="${esc(row.Activite||"")}">${esc((row.Activite||row.Code_NAF||"—").substring(0,28))}</td>
+      <td class="td-s">${esc((row.Adresse||"—").substring(0,32))}</td>
+      <td class="td-s">${esc((row.Dirigeant_Nom||"—").substring(0,20))}</td>
       <td><button class="btn-xs" onclick="ouvrirModal('${siret}')"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg></button></td>
     </tr>`;
   }).join("");
@@ -2895,9 +2967,10 @@ function bulkSetStatut(val){
     if(!suivi[siret]) suivi[siret]={};
     suivi[siret].statut=val; suivi[siret].date=new Date().toISOString();
   });
+  const nbMaj=S.ltSelected.size;
   saveSuivi(suivi); S.ltSelected.clear();
   document.getElementById("ltBulkSt").value="";
-  toast(`${S.ltSelected.size} entreprises mises à jour`);
+  toast(`${nbMaj} entreprises mises à jour`);
   renderListe(); render();
 }
 window.bulkSetStatut=bulkSetStatut;
@@ -2931,20 +3004,20 @@ function updateDash(){
   document.getElementById("dashRap").innerHTML=rappels.slice(0,8).map(([siret,e])=>{
     const row=findFull(siret); const nom=row?.Nom||siret;
     const late=e.rappel<today,td=e.rappel===today;
-    return `<div class="rr"><span class="rd ${td?"today":late?"late":""}">${fmtDate(e.rappel)}</span><span style="flex:1;cursor:pointer" onclick="ouvrirModal('${siret}')">${nom.substring(0,28)}</span></div>`;
+    return `<div class="rr"><span class="rd ${td?"today":late?"late":""}">${fmtDate(e.rappel)}</span><span style="flex:1;cursor:pointer" onclick="ouvrirModal('${siret}')">${esc(nom.substring(0,28))}</span></div>`;
   }).join("")||`<div class="e-dash">Aucun rappel programmé.<br>Ouvre une entreprise et ajoute une date de rappel.</div>`;
   const chauds=entries.filter(([,e])=>e.statut==="chaud");
   document.getElementById("dashChaud").innerHTML=chauds.slice(0,8).map(([siret,e])=>{
     const row=findFull(siret); const nom=row?.Nom||siret;
     const j=e.journal?e.journal[0]:null;
-    return `<div class="rr"><span style="flex:1;cursor:pointer;font-weight:600" onclick="ouvrirModal('${siret}')">${nom.substring(0,28)}</span>${j?`<span class="am">${fmtDate(j.date.slice(0,10))}</span>`:""}</div>`;
+    return `<div class="rr"><span style="flex:1;cursor:pointer;font-weight:600" onclick="ouvrirModal('${siret}')">${esc(nom.substring(0,28))}</span>${j?`<span class="am">${fmtDate(j.date.slice(0,10))}</span>`:""}</div>`;
   }).join("")||`<div class="e-dash">Aucun prospect chaud.</div>`;
   const allJ=[];
   entries.forEach(([siret,e])=>(e.journal||[]).forEach(j=>allJ.push({...j,siret})));
   allJ.sort((a,b)=>b.date.localeCompare(a.date));
   document.getElementById("dashActiv").innerHTML=allJ.slice(0,8).map(j=>{
     const row=findFull(j.siret); const nom=row?.Nom||j.siret;
-    return `<div class="ar"><span class="ai">${JT_ICO[j.type]||JT_ICO.note}</span><div style="flex:1"><div style="font-weight:600;cursor:pointer;font-size:12px" onclick="ouvrirModal('${j.siret}')">${nom.substring(0,26)}</div><div class="am">${j.texte.substring(0,38)}${j.commercial?" — "+j.commercial:""}</div></div><div class="am">${fmtDate(j.date.slice(0,10))}</div></div>`;
+    return `<div class="ar"><span class="ai">${JT_ICO[j.type]||JT_ICO.note}</span><div style="flex:1"><div style="font-weight:600;cursor:pointer;font-size:12px" onclick="ouvrirModal('${j.siret}')">${esc(nom.substring(0,26))}</div><div class="am">${esc(j.texte.substring(0,38))}${j.commercial?" — "+esc(j.commercial):""}</div></div><div class="am">${fmtDate(j.date.slice(0,10))}</div></div>`;
   }).join("")||`<div class="e-dash">Aucune activité récente.</div>`;
   const stCounts={};
   entries.forEach(([,e])=>{const s=e.statut||"";stCounts[s]=(stCounts[s]||0)+1;});
@@ -2986,9 +3059,9 @@ function chargerSuiviPourVue(vue){
   return loadSuivi();
 }
 function optionsVueStats(){
-  const eqOpts=S.equipes.map(eq=>`<option value="equipe:${eq.id}"${S.statsVue==="equipe:"+eq.id?" selected":""}>Équipe : ${eq.nom}</option>`).join("");
+  const eqOpts=S.equipes.map(eq=>`<option value="equipe:${eq.id}"${S.statsVue==="equipe:"+eq.id?" selected":""}>Équipe : ${esc(eq.nom)}</option>`).join("");
   return `<select id="statsVueSelect" onchange="S.statsVue=this.value;updateStats();" style="padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);margin-left:8px">
-    <option value="membre"${(!S.statsVue||S.statsVue==="membre")?" selected":""}>Membre actif : ${getCommercial()||"—"}</option>
+    <option value="membre"${(!S.statsVue||S.statsVue==="membre")?" selected":""}>Membre actif : ${esc(getCommercial()||"—")}</option>
     ${eqOpts}
     <option value="toutes"${S.statsVue==="toutes"?" selected":""}>Toutes les équipes (cumulé)</option>
   </select>`;
@@ -3040,8 +3113,8 @@ function getComparatifMembres(){
       <th style="text-align:right;padding:6px 4px">Pas intéressé</th>
     </tr></thead>
     <tbody>${lignes.map(l=>`<tr style="border-bottom:1px solid var(--line)${l.actif?";background:var(--ac-l)":""}">
-      <td style="padding:6px 4px;font-weight:${l.actif?"700":"500"}">${l.actif?"● ":""}${l.nom}</td>
-      <td style="padding:6px 4px;color:var(--ink-s)">${l.equipe}</td>
+      <td style="padding:6px 4px;font-weight:${l.actif?"700":"500"}">${l.actif?"● ":""}${esc(l.nom)}</td>
+      <td style="padding:6px 4px;color:var(--ink-s)">${esc(l.equipe)}</td>
       <td style="padding:6px 4px;text-align:right;font-family:var(--mono)">${l.contactes}</td>
       <td style="padding:6px 4px;text-align:right;font-family:var(--mono);color:#22c55e">${l.rdv}</td>
       <td style="padding:6px 4px;text-align:right;font-family:var(--mono);color:#f97316">${l.chaud}</td>
@@ -3055,7 +3128,7 @@ function getTopCommunes(suiviF){
   S.rows.forEach(r=>{ if(!r.siret) return; const st=suiviF[r.siret]?.statut||""; if(st&&st!=="") cc[r.insee]=(cc[r.insee]||0)+1; });
   return Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([code,n])=>{
     const nom=S.communes[code]?.nom||code;
-    return `<div class="sd"><div class="sl">${nom}</div><div class="sn">${n}</div></div>`;
+    return `<div class="sd"><div class="sl">${esc(nom)}</div><div class="sn">${n}</div></div>`;
   }).join("")||`<div class="e-dash">Pas encore de données.</div>`;
 }
 function getTopNAF(suiviF){
