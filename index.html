@@ -260,12 +260,14 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
     <span><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
     <input type="text" id="globalSearch" placeholder="Rechercher..." disabled oninput="onGlobalSearch(this.value)" onkeydown="if(event.key==='Enter')onGlobalSearchEnter()" title="Raccourci : / — Entrée pour centrer la carte sur le résultat">
   </div>
-  <button class="btn btn-o" id="btnExport" style="display:none" onclick="exporterSelection()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Exporter</button>
-  <button class="btn btn-v" onclick="exporterRapport()"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V10"/><path d="M12 19V4"/><path d="M20 19v-7"/></svg> Rapport</button>
-  <button class="btn btn-g" id="btnEnrichir" style="display:none" onclick="document.getElementById('enrichirFileInput').click()" title="Compléter les exports avec toutes les colonnes du fichier Excel maître (SIREN, TVA, Zone...)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Enrichir</button>
   <input type="file" id="enrichirFileInput" accept=".xlsx" style="display:none" onchange="enrichirDepuisExcel(this.files[0])">
   <div class="ls-warn" id="lsWarn"><svg class="ic" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg> Stockage presque plein</div>
-  <button class="btn btn-g" id="commercialPill" onclick="ouvrirGestionMembres()" title="Changer de membre / gérer l'équipe"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg><span id="commercialName">—</span></button>
+  <button class="btn btn-g" id="commercialPill" onclick="ouvrirGestionMembres()" title="Changer de membre / gérer l'équipe"><span id="commercialDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8;flex-shrink:0"></span><span id="commercialName">—</span></button>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
+    <button class="btn btn-o" id="btnExport" style="display:none" onclick="exporterSelection()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Exporter</button>
+    <button class="btn btn-v" onclick="exporterRapport()"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V10"/><path d="M12 19V4"/><path d="M20 19v-7"/></svg> Rapport</button>
+    <button class="btn btn-g" id="btnEnrichir" style="display:none" onclick="document.getElementById('enrichirFileInput').click()" title="Compléter les exports avec toutes les colonnes du fichier Excel maître (SIREN, TVA, Zone...)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Enrichir</button>
+  </div>
   <div class="pill">
     <b id="stTotal">—</b> ent. &nbsp;·&nbsp;
     <b id="stComm">—</b> comm. &nbsp;·&nbsp;
@@ -277,7 +279,6 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
 <div class="tabs">
   <div class="tab active" id="t-carte" onclick="switchTab('carte')"><svg class="ic" viewBox="0 0 24 24"><path d="M9 20l-6 3V7l6-3 6 3 6-3v16l-6 3-6-3z"/><line x1="9" y1="4" x2="9" y2="20"/><line x1="15" y1="7" x2="15" y2="23"/></svg> Carte</div>
   <div class="tab" id="t-liste" onclick="switchTab('liste')"><svg class="ic" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg> Liste</div>
-  <div class="tab" id="t-dash" onclick="switchTab('dash')"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Aujourd'hui<span id="rappelsBadge" style="display:none;margin-left:5px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;vertical-align:middle"></span></div>
   <div class="tab" id="t-stats" onclick="switchTab('stats')"><svg class="ic" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Stats</div>
 </div>
 
@@ -285,11 +286,10 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
 <div class="sfb" id="sfb">
   <span class="lbl">Afficher :</span>
   <span class="sfc on" data-s="" style="color:#64748b;background:#f1f5f9;" onclick="toggleSF(this)">● Non contacté</span>
-  <span class="sfc on" data-s="a_contacter" style="color:#3b82f6;background:#eff6ff;" onclick="toggleSF(this)">● À contacter</span>
-  <span class="sfc on" data-s="en_cours" style="color:#f59e0b;background:#fffbeb;" onclick="toggleSF(this)">● En cours</span>
+  <span class="sfc on" data-s="a_contacter" style="color:#3b82f6;background:#eff6ff;" onclick="toggleSF(this)">● Prospect à contacter</span>
+  <span class="sfc on" data-s="en_cours" style="color:#f59e0b;background:#fffbeb;" onclick="toggleSF(this)">● Prospect contacté</span>
   <span class="sfc on" data-s="rdv" style="color:#22c55e;background:#f0fdf4;" onclick="toggleSF(this)">● RDV pris</span>
   <span class="sfc on" data-s="pas_interesse" style="color:#ef4444;background:#fef2f2;" onclick="toggleSF(this)">● Pas intéressé</span>
-  <span class="sfc on" data-s="chaud" style="color:#f97316;background:#fff7ed;" onclick="toggleSF(this)">● Chaud</span>
   <button class="sf-rst" onclick="resetSF()">Tout</button>
 </div>
 
@@ -411,11 +411,10 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
         <select id="cpStatutFilter" onchange="onCpStatutFilterChange()" style="padding:6px 6px;border:1px solid var(--line);border-radius:var(--r);font-size:11px;font-family:var(--sans);flex-shrink:0" title="Filtrer/trier par statut">
           <option value="__tous__">Tout statut</option>
           <option value="__vide__">● Non contacté</option>
-          <option value="a_contacter">● À contacter</option>
-          <option value="en_cours">● En cours</option>
+          <option value="a_contacter">● Prospect à contacter</option>
+          <option value="en_cours">● Prospect contacté</option>
           <option value="rdv">● RDV pris</option>
           <option value="pas_interesse">● Pas intéressé</option>
-          <option value="chaud">● Chaud</option>
         </select>
       </div>
       <div class="cp-scroll" id="cpScroll"></div>
@@ -428,11 +427,10 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
       <select id="ltStatut" onchange="renderListe()">
         <option value="">Tous statuts</option>
         <option value="__vide__">● Non contacté</option>
-        <option value="a_contacter">● À contacter</option>
-        <option value="en_cours">● En cours</option>
+        <option value="a_contacter">● Prospect à contacter</option>
+        <option value="en_cours">● Prospect contacté</option>
         <option value="rdv">● RDV pris</option>
         <option value="pas_interesse">● Pas intéressé</option>
-        <option value="chaud">● Chaud</option>
       </select>
       <select id="ltCommune" onchange="renderListe()"><option value="">Toutes communes</option></select>
       <input type="text" id="ltSearch" placeholder="Nom..." oninput="renderListe()" style="min-width:140px">
@@ -442,11 +440,10 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
         <select id="ltBulkSt" onchange="bulkSetStatut(this.value)">
           <option value="">Changer statut...</option>
           <option value="">● Non contacté</option>
-          <option value="a_contacter">● À contacter</option>
-          <option value="en_cours">● En cours</option>
+          <option value="a_contacter">● Prospect à contacter</option>
+          <option value="en_cours">● Prospect contacté</option>
           <option value="rdv">● RDV pris</option>
           <option value="pas_interesse">● Pas intéressé</option>
-          <option value="chaud">● Chaud</option>
         </select>
         <button class="btn-xs" onclick="clearSelection()">✕</button>
       </div>
@@ -465,20 +462,6 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
         <tbody id="ltBody"></tbody>
       </table>
       <div class="lt-empty" id="ltEmpty" style="display:none">Aucun résultat.</div>
-    </div>
-  </div>
-
-  <!-- Vue Dashboard -->
-  <div class="vue-dash" id="vueDash">
-    <div class="dash-scroll">
-      <div class="dash-ctx" id="dashCtx" style="display:none"></div>
-      <div class="dash-cards" id="dashCards"></div>
-      <div class="dash-grid">
-        <div class="db"><div class="db-t"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Rappels</div><div id="dashRap"></div></div>
-        <div class="db"><div class="db-t">Prospects chauds</div><div id="dashChaud"></div></div>
-        <div class="db"><div class="db-t">Activité récente</div><div id="dashActiv"></div></div>
-        <div class="db"><div class="db-t">Avancement</div><div id="dashProg"></div></div>
-      </div>
     </div>
   </div>
 
@@ -565,14 +548,13 @@ function esc(v){
   return String(v==null?"":v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 const ST = {
-  "":             {label:"● Non contacté",  color:"#94a3b8", bg:"#f1f5f9", mc:"#94a3b8"},
-  "a_contacter":  {label:"● À contacter",   color:"#3b82f6", bg:"#eff6ff", mc:"#3b82f6"},
-  "en_cours":     {label:"● En cours",       color:"#f59e0b", bg:"#fffbeb", mc:"#f59e0b"},
-  "rdv":          {label:"● RDV pris",       color:"#22c55e", bg:"#f0fdf4", mc:"#22c55e"},
-  "pas_interesse":{label:"● Pas intéressé",  color:"#ef4444", bg:"#fef2f2", mc:"#ef4444"},
-  "chaud":        {label:"● Prospect chaud", color:"#f97316", bg:"#fff7ed", mc:"#f97316"},
+  "":             {label:"● Non contacté",         color:"#94a3b8", bg:"#f1f5f9", mc:"#94a3b8"},
+  "a_contacter":  {label:"● Prospect à contacter", color:"#3b82f6", bg:"#eff6ff", mc:"#3b82f6"},
+  "en_cours":     {label:"● Prospect contacté",    color:"#f59e0b", bg:"#fffbeb", mc:"#f59e0b"},
+  "rdv":          {label:"● RDV pris",             color:"#22c55e", bg:"#f0fdf4", mc:"#22c55e"},
+  "pas_interesse":{label:"● Pas intéressé",        color:"#ef4444", bg:"#fef2f2", mc:"#ef4444"},
 };
-const ST_PRI = ["chaud","rdv","en_cours","a_contacter","","pas_interesse"];
+const ST_PRI = ["rdv","en_cours","a_contacter","","pas_interesse"];
 const JT = {appel:"Appel",email:"Email",visite:"Visite",rdv:"RDV",note:"Note"};
 const JT_ICO = {appel:'<svg class="ic" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 2 .6 3a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2-.5c1 .3 2 .5 3 .6a2 2 0 0 1 1.7 2z"/></svg>',email:'<svg class="ic" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>',visite:'<svg class="ic" viewBox="0 0 24 24"><path d="M5 17h14M5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm14 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM3 17V11l2-5h14l2 5v6"/></svg>',rdv:'<svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c0-3.3 3-6 7-6s7 2.7 7 6"/><path d="M16 8.5a3 3 0 1 1 3.5 3"/><path d="M22 20c0-2.6-1.9-4.8-4.5-5.6"/></svg>',note:'<svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>'};
 
@@ -630,6 +612,14 @@ function suiviKeyPour(membreId){
   return (membreId&&membreId!=="default") ? LS_SUIVI+"__"+membreId : LS_SUIVI;
 }
 
+// Une couleur stable par membre (dérivée de son id) pour le distinguer d'un coup d'œil
+// dans la gestion des membres, le comparatif et les listes partagées entre plusieurs membres.
+const MEMBRE_PALETTE=["#2563eb","#dc2626","#16a34a","#d97706","#7c3aed","#0d9488","#db2777","#65a30d","#0891b2","#c2410c","#4f46e5","#be123c"];
+function couleurMembre(id){
+  let h=0; for(let i=0;i<id.length;i++) h=(h*31+id.charCodeAt(i))>>>0;
+  return MEMBRE_PALETTE[h%MEMBRE_PALETTE.length];
+}
+
 function initMembres(){
   S.membres=loadMembres();
   S.equipes=loadEquipes();
@@ -654,6 +644,8 @@ function getCommercial(){
 function updateCommercialPill(){
   const el=document.getElementById("commercialName"); if(!el) return;
   el.textContent=getCommercial()||"Membres";
+  const dot=document.getElementById("commercialDot");
+  if(dot) dot.style.background=S.membreActifId?couleurMembre(S.membreActifId):"#94a3b8";
 }
 
 function ouvrirGestionMembres(){
@@ -682,7 +674,8 @@ function renderMembresListe(){
       const zoneOuverte=S.zoneEditId===m.id;
       return `<div style="border-bottom:1px solid var(--line)">
       <div style="display:flex;align-items:center;gap:6px;padding:6px 0">
-        <span style="flex:1;font-size:12.5px;font-weight:${actif?"700":"500"};color:${actif?"var(--ac-d)":"var(--ink)"}">${actif?"● ":""}${esc(m.nom)}${nbZone?` <span style="font-size:9.5px;color:#7c3aed;font-weight:600">(${nbZone} commune${nbZone>1?"s":""})</span>`:""}</span>
+        <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${couleurMembre(m.id)};flex-shrink:0" title="Couleur du membre"></span>
+        <span style="flex:1;font-size:12.5px;font-weight:${actif?"700":"500"};color:${actif?"var(--ac-d)":"var(--ink)"}">${esc(m.nom)}${nbZone?` <span style="font-size:9.5px;color:#7c3aed;font-weight:600">(${nbZone} commune${nbZone>1?"s":""})</span>`:""}</span>
         ${actif?"<span style='font-size:10px;color:var(--ac-d);font-weight:700'>ACTIF</span>":`<button class="btn-xs" onclick="selectionnerMembre('${m.id}')">Sélectionner</button>`}
         <button class="btn-xs" onclick="toggleZoneEditor('${m.id}')" title="Assigner une zone (communes)" style="${zoneOuverte?"background:var(--ac-l);color:var(--ac-d)":""}"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></button>
         <button class="btn-xs" onclick="exporterCacheMembre('${m.id}')" title="Sauvegarder le cache de ce membre"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></button>
@@ -1021,14 +1014,13 @@ function hideLoading(){ document.getElementById("loadingScreen").classList.remov
 // TABS
 // ════════════════════════════════════════════════════════════════
 function switchTab(tab){
-  ["carte","liste","dash","stats"].forEach(id=>{
+  ["carte","liste","stats"].forEach(id=>{
     document.getElementById("t-"+id).classList.toggle("active",id===tab);
     const el=document.getElementById("vue"+id.charAt(0).toUpperCase()+id.slice(1));
     if(el) el.style.display=id===tab?"flex":"none";
   });
   document.getElementById("sfb").style.display=tab==="carte"?"":"none";
   if(tab==="liste"){ initLtCommunes(); renderListe(); }
-  if(tab==="dash") updateDash();
   if(tab==="stats") updateStats();
   if(tab==="carte") setTimeout(()=>S.map&&S.map.invalidateSize(),50);
   sauvegarderFiltres();
@@ -1066,7 +1058,6 @@ document.addEventListener("DOMContentLoaded", async function(){
     toast("⚠ Données modifiées dans un autre onglet — affichage resynchronisé.");
   });
   updateCpToggleBtn();
-  updateRappelsBadge();
   loadCommunes().then(function(){
     return tryAutoLoad();
   }).then(function(ok){
@@ -1882,8 +1873,8 @@ function getCommuneColor(insee){
     counts[st]=(counts[st]||0)+1;
   });
   // Un statut ne colore toute la bulle que s'il concerne une part significative de la commune —
-  // sinon une seule entreprise marquée "chaud" sur des milliers ferait passer toute la commune en
-  // orange, ce qui est trompeur à l'échelle de la métropole. En dessous du seuil, la bulle reste grise.
+  // sinon une seule entreprise marquée "rdv" sur des milliers ferait passer toute la commune en
+  // vert, ce qui est trompeur à l'échelle de la métropole. En dessous du seuil, la bulle reste grise.
   const seuil=Math.max(2,Math.ceil(sirets.length*0.01));
   let best="";
   for(const code of ST_PRI){
@@ -2050,7 +2041,7 @@ function onCpStatutFilterChange(){
 window.onCpStatutFilterChange=onCpStatutFilterChange;
 
 // Filtre une liste de {siret,...} par le statut choisi dans le panneau (si actif), puis trie par
-// priorité de statut (chaud/rdv/en_cours en premier) quand un filtre est actif, pour regrouper
+// priorité de statut (rdv/en_cours en premier) quand un filtre est actif, pour regrouper
 // visuellement — sinon garde l'ordre d'origine (distance, alphabétique...) de l'appelant.
 function filtrerTrierParStatutPanel(rows,suivi){
   let out=rows;
@@ -2324,7 +2315,7 @@ function autresMembresTouches(siret){
     const s=chargerSuiviMembre(m.id);
     const e=s[siret];
     if(e&&e.statut&&e.statut!==""){
-      resultats.push({nom:m.nom,statutLabel:(ST[e.statut]||ST[""]).label.replace("●","").trim()});
+      resultats.push({id:m.id,nom:m.nom,statutLabel:(ST[e.statut]||ST[""]).label.replace("●","").trim()});
     }
   });
   return resultats;
@@ -2344,7 +2335,7 @@ document.getElementById("moSub").innerHTML=
     (row.Dirigeant_Nom?`<br><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg> ${esc(row.Dirigeant_Nom)}${row.Dirigeant_Role?" — "+esc(row.Dirigeant_Role):""}`:"");
   const e=getEntry(siret);
   const autres=autresMembresTouches(siret);
-  const banniereDoublon=autres.length?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:var(--r);padding:8px 10px;margin-bottom:11px;font-size:11.5px;color:#9a3412"><b>⚠ Déjà touchée par ${autres.length>1?"plusieurs membres":"un autre membre"} :</b><br>${autres.map(a=>`${esc(a.nom)} — ${esc(a.statutLabel)}`).join("<br>")}</div>`:"";
+  const banniereDoublon=autres.length?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:var(--r);padding:8px 10px;margin-bottom:11px;font-size:11.5px;color:#9a3412"><b>⚠ Déjà touchée par ${autres.length>1?"plusieurs membres":"un autre membre"} :</b><br>${autres.map(a=>`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${couleurMembre(a.id)};margin-right:4px"></span>${esc(a.nom)} — ${esc(a.statutLabel)}`).join("<br>")}</div>`:"";
   document.getElementById("moBody").innerHTML=`
     ${banniereDoublon}
     <div style="margin-bottom:11px">
@@ -2404,24 +2395,12 @@ window.moSetStatut=moSetStatut;
 function setRappel(siret,val){
   const e=getEntry(siret); e.rappel=val; saveEntry(siret,e);
   toast(val?"Rappel enregistré":"Rappel supprimé");
-  updateDash(); refreshActiveView(); updateRappelsBadge();
+  refreshActiveView();
   // Refresh modale
   const inp=document.getElementById("moRap");
   if(inp) inp.value=val;
 }
 window.setRappel=setRappel;
-
-// Compte les rappels dus aujourd'hui ou en retard, affiche le total sur l'onglet "Aujourd'hui".
-function updateRappelsBadge(){
-  const today=new Date().toISOString().slice(0,10);
-  const suivi=loadSuivi();
-  let n=0;
-  Object.values(suivi).forEach(e=>{ if(e.rappel&&e.rappel<=today) n++; });
-  const badge=document.getElementById("rappelsBadge");
-  if(!badge) return;
-  if(n>0){ badge.textContent=n>99?"99+":n; badge.style.display="inline-block"; }
-  else { badge.style.display="none"; }
-}
 
 function addJ(siret){
   const type=document.getElementById("jType").value;
@@ -2430,7 +2409,7 @@ function addJ(siret){
   addJournal(siret,type,texte);
   document.getElementById("jTxt").value="";
   document.getElementById("moJournal").innerHTML=renderJournal(siret);
-  updateDash(); toast("Entrée ajoutée");
+  toast("Entrée ajoutée");
 }
 window.addJ=addJ;
 function delJ(siret,id){ delJournal(siret,id); document.getElementById("moJournal").innerHTML=renderJournal(siret); }
@@ -2440,10 +2419,24 @@ window.delJ=delJ;
 // NAF SIDEBAR
 // ════════════════════════════════════════════════════════════════
 // Ordre officiel INSEE des tranches d'effectif (pas alphabétique, sinon "10 000+" se retrouve avant "2 000").
-const EFFECTIF_ORDRE=["Non renseigné / sans salarié","0 salarié","1 à 2 salariés","3 à 5 salariés","6 à 9 salariés",
-  "10 à 19 salariés","20 à 49 salariés","50 à 99 salariés","100 à 199 salariés","200 à 249 salariés",
-  "250 à 499 salariés","500 à 999 salariés","1 000 à 1 999 salariés","2 000 à 4 999 salariés",
-  "5 000 à 9 999 salariés","10 000 salariés et plus"];
+// Les tranches fines "1 à 2 / 3 à 5 / 6 à 9" sont regroupées en un seul filtre affiché "1 à 9 salariés"
+// (les valeurs d'origine restent intactes dans les données, seul l'affichage/filtre est fusionné).
+const EFFECTIF_GROUPES=[
+  {label:"Non renseigné / sans salarié", values:["Non renseigné / sans salarié"]},
+  {label:"0 salarié", values:["0 salarié"]},
+  {label:"1 à 9 salariés", values:["1 à 2 salariés","3 à 5 salariés","6 à 9 salariés"]},
+  {label:"10 à 19 salariés", values:["10 à 19 salariés"]},
+  {label:"20 à 49 salariés", values:["20 à 49 salariés"]},
+  {label:"50 à 99 salariés", values:["50 à 99 salariés"]},
+  {label:"100 à 199 salariés", values:["100 à 199 salariés"]},
+  {label:"200 à 249 salariés", values:["200 à 249 salariés"]},
+  {label:"250 à 499 salariés", values:["250 à 499 salariés"]},
+  {label:"500 à 999 salariés", values:["500 à 999 salariés"]},
+  {label:"1 000 à 1 999 salariés", values:["1 000 à 1 999 salariés"]},
+  {label:"2 000 à 4 999 salariés", values:["2 000 à 4 999 salariés"]},
+  {label:"5 000 à 9 999 salariés", values:["5 000 à 9 999 salariés"]},
+  {label:"10 000 salariés et plus", values:["10 000 salariés et plus"]},
+];
 
 function peuplerEffectifList(){
   const box=document.getElementById("effectifListBox");
@@ -2458,12 +2451,17 @@ function peuplerEffectifList(){
     box.innerHTML="<div style='padding:10px 4px;font-size:11px;color:#c2530f;line-height:1.5'>Donnée quasi absente du fichier chargé (JSON allégé). Clique sur <b>Enrichir</b> en haut (avec ton Excel complet) pour la récupérer.</div>";
     return;
   }
-  const presentes=EFFECTIF_ORDRE.filter(v=>counts[v]>0);
-  box.innerHTML=presentes.map(v=>`<label class="cmr"><input type="checkbox" ${S.effectifSelect.has(v)?"checked":""} onchange="toggleEffectifSel('${v.replace(/'/g,"\\'")}')"><span class="cmn">${esc(v)}</span><span class="cmc">${counts[v].toLocaleString("fr-FR")}</span></label>`).join("")||"<div style='padding:10px;font-size:11px;color:var(--ink-s)'>Donnée indisponible.</div>";
+  const presentes=EFFECTIF_GROUPES.map((g,idx)=>({...g,idx,total:g.values.reduce((s,v)=>s+(counts[v]||0),0)})).filter(g=>g.total>0);
+  box.innerHTML=presentes.map(g=>{
+    const checked=g.values.every(v=>S.effectifSelect.has(v));
+    return `<label class="cmr"><input type="checkbox" ${checked?"checked":""} onchange="toggleEffectifGroupe(${g.idx})"><span class="cmn">${esc(g.label)}</span><span class="cmc">${g.total.toLocaleString("fr-FR")}</span></label>`;
+  }).join("")||"<div style='padding:10px;font-size:11px;color:var(--ink-s)'>Donnée indisponible.</div>";
 }
 
-function toggleEffectifSel(val){
-  if(S.effectifSelect.has(val)) S.effectifSelect.delete(val); else S.effectifSelect.add(val);
+function toggleEffectifGroupe(idx){
+  const g=EFFECTIF_GROUPES[idx];
+  const toutCoche=g.values.every(v=>S.effectifSelect.has(v));
+  g.values.forEach(v=>{ if(toutCoche) S.effectifSelect.delete(v); else S.effectifSelect.add(v); });
   document.getElementById("effectifClr").style.display=S.effectifSelect.size?"block":"none";
   peuplerEffectifList();
   if(S.rayC) recalculerRayonPrecis();
@@ -2472,7 +2470,7 @@ function toggleEffectifSel(val){
   if(S.panelMode==="commune") renderPanel();
   if(!S.tour&&S.rayC) ouvrirRayonPanel();
 }
-window.toggleEffectifSel=toggleEffectifSel;
+window.toggleEffectifGroupe=toggleEffectifGroupe;
 
 function effacerEffectifSel(){
   S.effectifSelect.clear();
@@ -2977,55 +2975,6 @@ window.bulkSetStatut=bulkSetStatut;
 function clearSelection(){ S.ltSelected.clear(); renderListe(); }
 window.clearSelection=clearSelection;
 
-// ════════════════════════════════════════════════════════════════
-// DASHBOARD
-// ════════════════════════════════════════════════════════════════
-function updateDash(){
-  const suivi=loadSuivi(); const fSirets=getFiltresSirets();
-  const hasFiltres=S.selNAF.size>0||!!S.rayC||!!S.tour||S.communesSelect.size>0||S.effectifSelect.size>0;
-  const entries=Object.entries(suivi).filter(([s])=>!hasFiltres||fSirets.has(s));
-  const total=getTotalFiltres();
-  const nbCont=entries.filter(([,e])=>e.statut&&e.statut!=="").length;
-  const nbRDV=entries.filter(([,e])=>e.statut==="rdv").length;
-  const nbChaud=entries.filter(([,e])=>e.statut==="chaud").length;
-  const pct=total>0?((nbCont/total)*100).toFixed(1):0;
-  const ctx=document.getElementById("dashCtx");
-  if(hasFiltres){
-    ctx.style.display="block";
-    ctx.textContent=`Données filtrées : ${S.selNAF.size>0?[...S.selNAF].slice(0,2).join(", ")+(S.selNAF.size>2?"...":""):""}${S.rayC?" · rayon "+S.rayKm+"km":""} — ${total.toLocaleString("fr-FR")} entreprises`;
-  } else { ctx.style.display="none"; }
-  document.getElementById("dashCards").innerHTML=`
-    <div class="dc"><div class="dc-n">${total.toLocaleString("fr-FR")}</div><div class="dc-l">Prospects</div></div>
-    <div class="dc"><div class="dc-n" style="color:#3b82f6">${nbCont.toLocaleString("fr-FR")}</div><div class="dc-l">Contactés (${pct}%)</div></div>
-    <div class="dc"><div class="dc-n" style="color:#22c55e">${nbRDV}</div><div class="dc-l">RDV pris</div></div>
-    <div class="dc"><div class="dc-n" style="color:#f97316">${nbChaud}</div><div class="dc-l">Chauds</div></div>`;
-  const today=new Date().toISOString().slice(0,10);
-  const rappels=entries.filter(([,e])=>e.rappel).sort((a,b)=>a[1].rappel.localeCompare(b[1].rappel));
-  document.getElementById("dashRap").innerHTML=rappels.slice(0,8).map(([siret,e])=>{
-    const row=findFull(siret); const nom=row?.Nom||siret;
-    const late=e.rappel<today,td=e.rappel===today;
-    return `<div class="rr"><span class="rd ${td?"today":late?"late":""}">${fmtDate(e.rappel)}</span><span style="flex:1;cursor:pointer" onclick="ouvrirModal('${siret}')">${esc(nom.substring(0,28))}</span></div>`;
-  }).join("")||`<div class="e-dash">Aucun rappel programmé.<br>Ouvre une entreprise et ajoute une date de rappel.</div>`;
-  const chauds=entries.filter(([,e])=>e.statut==="chaud");
-  document.getElementById("dashChaud").innerHTML=chauds.slice(0,8).map(([siret,e])=>{
-    const row=findFull(siret); const nom=row?.Nom||siret;
-    const j=e.journal?e.journal[0]:null;
-    return `<div class="rr"><span style="flex:1;cursor:pointer;font-weight:600" onclick="ouvrirModal('${siret}')">${esc(nom.substring(0,28))}</span>${j?`<span class="am">${fmtDate(j.date.slice(0,10))}</span>`:""}</div>`;
-  }).join("")||`<div class="e-dash">Aucun prospect chaud.</div>`;
-  const allJ=[];
-  entries.forEach(([siret,e])=>(e.journal||[]).forEach(j=>allJ.push({...j,siret})));
-  allJ.sort((a,b)=>b.date.localeCompare(a.date));
-  document.getElementById("dashActiv").innerHTML=allJ.slice(0,8).map(j=>{
-    const row=findFull(j.siret); const nom=row?.Nom||j.siret;
-    return `<div class="ar"><span class="ai">${JT_ICO[j.type]||JT_ICO.note}</span><div style="flex:1"><div style="font-weight:600;cursor:pointer;font-size:12px" onclick="ouvrirModal('${j.siret}')">${esc(nom.substring(0,26))}</div><div class="am">${esc(j.texte.substring(0,38))}${j.commercial?" — "+esc(j.commercial):""}</div></div><div class="am">${fmtDate(j.date.slice(0,10))}</div></div>`;
-  }).join("")||`<div class="e-dash">Aucune activité récente.</div>`;
-  const stCounts={};
-  entries.forEach(([,e])=>{const s=e.statut||"";stCounts[s]=(stCounts[s]||0)+1;});
-  document.getElementById("dashProg").innerHTML=Object.entries(ST).filter(([k])=>stCounts[k]).sort((a,b)=>(stCounts[b[0]]||0)-(stCounts[a[0]]||0)).map(([k,v])=>{
-    const n=stCounts[k]||0; const pct=total>0?Math.round(n/total*100):0;
-    return `<div class="sd"><div class="sl" style="color:${v.color}">${v.label}</div><div class="sn">${n} (${pct}%)</div></div><div class="pb"><div class="pf" style="width:${pct}%;background:${v.color}"></div></div>`;
-  }).join("")||`<div class="e-dash">Commence à contacter des entreprises.</div>`;
-}
 
 // ════════════════════════════════════════════════════════════════
 // STATS
@@ -3034,7 +2983,7 @@ function chargerSuiviMembre(id){
   try{ return JSON.parse(localStorage.getItem(suiviKeyPour(id))||"{}"); }catch(e){ return {}; }
 }
 // Combine le suivi de plusieurs membres en un seul objet {siret:entry} — quand un même siret a été
-// touché par plusieurs membres, on garde celui au statut le plus "avancé" (chaud > rdv > ...).
+// touché par plusieurs membres, on garde celui au statut le plus "avancé" (rdv > en_cours > ...).
 function chargerSuiviCombine(membreIds){
   const combine={};
   membreIds.forEach(id=>{
@@ -3098,10 +3047,9 @@ function getComparatifMembres(){
     const entries=Object.values(s);
     const contactes=entries.filter(e=>e.statut&&e.statut!=="").length;
     const rdv=entries.filter(e=>e.statut==="rdv").length;
-    const chaud=entries.filter(e=>e.statut==="chaud").length;
     const pasInteresse=entries.filter(e=>e.statut==="pas_interesse").length;
     const eq=S.equipes.find(x=>x.id===m.equipeId);
-    return {nom:m.nom,equipe:eq?eq.nom:"—",contactes,rdv,chaud,pasInteresse,actif:m.id===S.membreActifId};
+    return {id:m.id,nom:m.nom,equipe:eq?eq.nom:"—",contactes,rdv,pasInteresse,actif:m.id===S.membreActifId};
   }).sort((a,b)=>b.contactes-a.contactes);
   return `<table style="width:100%;border-collapse:collapse;font-size:12px">
     <thead><tr style="border-bottom:2px solid var(--line)">
@@ -3109,15 +3057,13 @@ function getComparatifMembres(){
       <th style="text-align:left;padding:6px 4px">Équipe</th>
       <th style="text-align:right;padding:6px 4px">Contactées</th>
       <th style="text-align:right;padding:6px 4px">RDV</th>
-      <th style="text-align:right;padding:6px 4px">Chaud</th>
       <th style="text-align:right;padding:6px 4px">Pas intéressé</th>
     </tr></thead>
     <tbody>${lignes.map(l=>`<tr style="border-bottom:1px solid var(--line)${l.actif?";background:var(--ac-l)":""}">
-      <td style="padding:6px 4px;font-weight:${l.actif?"700":"500"}">${l.actif?"● ":""}${esc(l.nom)}</td>
+      <td style="padding:6px 4px;font-weight:${l.actif?"700":"500"}"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${couleurMembre(l.id)};margin-right:5px"></span>${esc(l.nom)}</td>
       <td style="padding:6px 4px;color:var(--ink-s)">${esc(l.equipe)}</td>
       <td style="padding:6px 4px;text-align:right;font-family:var(--mono)">${l.contactes}</td>
       <td style="padding:6px 4px;text-align:right;font-family:var(--mono);color:#22c55e">${l.rdv}</td>
-      <td style="padding:6px 4px;text-align:right;font-family:var(--mono);color:#f97316">${l.chaud}</td>
       <td style="padding:6px 4px;text-align:right;font-family:var(--mono);color:#ef4444">${l.pasInteresse}</td>
     </tr>`).join("")}</tbody>
   </table>`;
@@ -3153,7 +3099,6 @@ function getJournalStats(suiviF){
 // ════════════════════════════════════════════════════════════════
 function refreshActiveView(){
   const tab=document.querySelector(".tab.active")?.id?.replace("t-","");
-  if(tab==="dash") updateDash();
   if(tab==="stats") updateStats();
   if(tab==="liste") renderListe();
 }
@@ -3287,8 +3232,7 @@ function initKeyboard(){
     if(e.key==="/"){ e.preventDefault(); document.getElementById("globalSearch").focus(); }
     if(e.key==="1") switchTab("carte");
     if(e.key==="2") switchTab("liste");
-    if(e.key==="3") switchTab("dash");
-    if(e.key==="4") switchTab("stats");
+    if(e.key==="3") switchTab("stats");
   });
 }
 
