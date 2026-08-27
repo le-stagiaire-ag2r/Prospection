@@ -300,11 +300,14 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
   <div class="sb">
     <div class="sb-h">
       <div class="rayon-h open" onclick="toggleRayonBlock('secBody',this)" style="margin-bottom:6px"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span class="r-lbl">Secteur d'activité</span><span class="arrow">▶</span></div>
-      <div class="sw"><span class="si"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+            <div class="sw"><span class="si"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         <input type="text" id="nafSearch" placeholder="Secteur d'activité..." disabled oninput="onNafSearch(this.value)">
       </div>
+      <label style="display:flex;align-items:center;gap:5px;margin-top:6px;font-size:10.5px;color:var(--ink-s);cursor:pointer;user-select:none">
+        <input type="checkbox" id="selectAllNaf" onchange="toggleTousLesNAF(this.checked)">
+        Tout sélectionner (tous les secteurs)
+      </label>
       <div id="countScopeIndicator" style="display:none;font-size:10px;color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:5px;padding:3px 7px;margin-top:5px;line-height:1.4"></div>
-    </div>
     <div class="chips rayon-body open" id="chipsArea" style="display:none"></div>
     <div class="sb-scroll rayon-body open" id="secBody">
       <div id="secTree"></div>
@@ -349,7 +352,7 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
     <div class="rayon" style="border-top:1px solid var(--line)">
       <div class="rayon-h open" onclick="toggleRayonBlock('ttBody',this)"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span class="r-lbl">Tournée terrain</span><span class="arrow">▶</span></div>
       <div class="rayon-body open" id="ttBody">
-      <input type="text" id="tourAddr" placeholder="Adresse du RDV, ex : 12 rue Nationale, Lille" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);margin-bottom:5px" onkeydown="if(event.key==='Enter')lancerTournee()">
+            <input type="text" id="tourAddr" placeholder="Adresse du RDV, ex : 12 rue Nationale, Lille" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans);margin-bottom:5px" onkeydown="if(event.key==='Enter')lancerTournee()">
       <div class="rayon-row">
         <select id="tourRad">
           <option value="100">100 m</option>
@@ -357,7 +360,8 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
           <option value="500">500 m</option>
           <option value="1000">1 km</option>
         </select>
-        <button class="btn btn-p" id="btnTour" onclick="lancerTournee()" style="flex-shrink:0"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+        <button class="btn btn-p" id="btnTour" onclick="lancerTournee()" style="flex-shrink:0" title="Rechercher cette adresse"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+        <button class="btn btn-o" id="btnTourGPS" onclick="lancerTourneeDepuisPosition()" style="flex-shrink:0" title="Utiliser ma position actuelle (GPS)"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></button>
       </div>
       <div class="r-st" id="tourSt"></div>
       <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap">
@@ -2535,6 +2539,21 @@ function selNAF(code,label){
   if(S.panelMode==="commune") renderPanel();
   if(!S.tour&&S.rayC) ouvrirRayonPanel();
 }
+  // Coche/décoche TOUS les secteurs NAF présents dans les données en un clic — pratique pour la
+// tournée terrain (voir toutes les entreprises du rayon peu importe le secteur, sans les cocher
+// une par une).
+function toggleTousLesNAF(checked){
+  if(checked){
+    Object.keys(S.nafCounts).forEach(code=>S.selNAF.add(code));
+  } else {
+    S.selNAF.clear();
+  }
+  updateChips(); updateActiveNAF(); renderRayonPins(); renderCommunesPins(); render(); sauvegarderFiltres();
+  if(S.tour) recalculerTournee();
+  if(S.panelMode==="commune") renderPanel();
+  if(!S.tour&&S.rayC) ouvrirRayonPanel();
+}
+window.toggleTousLesNAF=toggleTousLesNAF;
 function updateChips(){
   const area=document.getElementById("chipsArea");
   if(S.selNAF.size===0){area.style.display="none";area.innerHTML="";return;}
@@ -2692,38 +2711,7 @@ async function lancerTournee(){
     }
     const feat=data.features[0];
     const [lon,lat]=feat.geometry.coordinates;
-    const label=feat.properties.label;
-
-    if(S.tourCircle) S.map.removeLayer(S.tourCircle);
-    if(S.tourMarker) S.map.removeLayer(S.tourMarker);
-
-    const zoom = radiusM<=100?18:radiusM<=250?17:radiusM<=500?16:15;
-    S.map.setView([lat,lon],zoom);
-    S.tourCircle=L.circle([lat,lon],{radius:radiusM,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:.08,weight:2,dashArray:"5,5",interactive:false}).addTo(S.map);
-    if(S.tourCircle._path) S.tourCircle._path.style.pointerEvents="none";
-    S.tourMarker=L.circleMarker([lat,lon],{radius:7,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:1,weight:2,interactive:false}).addTo(S.map).bindTooltip(esc(label));
-    if(S.tourMarker._path) S.tourMarker._path.style.pointerEvents="none";
-
-    // Communes proches du point (marge au-delà du rayon pour couvrir les frontières de commune),
-    // indépendamment du zoom de la carte — c'est le point précis qui définit la zone, pas la vue.
-    const margeKm=Math.max(3,radiusM/1000+2);
-    const communesProches=new Set(
-      Object.entries(S.communes)
-        .filter(([code,c])=>haversineKm(lat,lon,c.lat,c.lon)<=margeKm)
-        .map(([code])=>code)
-    );
-    if(feat.properties.citycode) communesProches.add(feat.properties.citycode);
-
-    // On fige le point/rayon/communes tout de suite : même si le calcul des résultats échoue ou
-    // demande à filtrer par secteur, l'affichage reste toujours cohérent avec ce qui est réellement recherché.
-    S.tour={point:{lat,lon},radiusM,communesProches:[...communesProches],label,results:[]};
-    S.tourSirets=null;
-    document.getElementById("tourClr").style.display="inline-block";
-    document.getElementById("tourList").style.display="inline-block";
-    document.getElementById("tourPrint").style.display="inline-block";
-
-    await recalculerTournee();
-    ouvrirTourPanel();
+    await demarrerTourneeAvecPoint(lat,lon,feat.properties.label,radiusM,feat.properties.citycode);
   }catch(e){
     console.error("[Tournée] erreur:",e);
     stEl.textContent="Erreur : "+e.message;
@@ -2732,6 +2720,61 @@ async function lancerTournee(){
 }
 window.lancerTournee=lancerTournee;
 
+// Même principe que lancerTournee(), mais à partir de la position GPS réelle de l'appareil plutôt
+// que d'une adresse tapée — utile quand on est devant une entreprise qui n'est pas dans le fichier
+// (donc pas d'adresse à rechercher) mais qu'on veut quand même voir ce qu'il y a autour, dans le fichier.
+async function lancerTourneeDepuisPosition(){
+  if(!navigator.geolocation){ toast("Géolocalisation non supportée par ce navigateur."); return; }
+  if(!S.full){ const ok=await chargerFull(); if(!ok) return; }
+  const radiusM=parseInt(document.getElementById("tourRad").value);
+  const btn=document.getElementById("btnTourGPS");
+  const stEl=document.getElementById("tourSt");
+  btn.disabled=true;
+  stEl.textContent="Localisation en cours...";
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const lat=pos.coords.latitude, lon=pos.coords.longitude;
+    const precision=Math.round(pos.coords.accuracy);
+    await demarrerTourneeAvecPoint(lat,lon,`Ma position actuelle (± ${precision} m)`,radiusM,null);
+    btn.disabled=false;
+  }, err=>{
+    console.error("[Géoloc]",err);
+    stEl.textContent=err.code===1?"Géolocalisation refusée — autorise l'accès à la position dans ton navigateur.":"Position indisponible.";
+    btn.disabled=false;
+  }, {enableHighAccuracy:true,timeout:10000,maximumAge:0});
+}
+window.lancerTourneeDepuisPosition=lancerTourneeDepuisPosition;
+
+// Logique commune aux deux modes de démarrage de tournée (adresse tapée ou position GPS) : trace le
+// cercle, fige le point/rayon/communes, lance le calcul des résultats et ouvre le panneau.
+async function demarrerTourneeAvecPoint(lat,lon,label,radiusM,citycode){
+  const stEl=document.getElementById("tourSt");
+  if(S.tourCircle) S.map.removeLayer(S.tourCircle);
+  if(S.tourMarker) S.map.removeLayer(S.tourMarker);
+
+  const zoom = radiusM<=100?18:radiusM<=250?17:radiusM<=500?16:15;
+  S.map.setView([lat,lon],zoom);
+  S.tourCircle=L.circle([lat,lon],{radius:radiusM,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:.08,weight:2,dashArray:"5,5",interactive:false}).addTo(S.map);
+  if(S.tourCircle._path) S.tourCircle._path.style.pointerEvents="none";
+  S.tourMarker=L.circleMarker([lat,lon],{radius:7,color:"#7c3aed",fillColor:"#7c3aed",fillOpacity:1,weight:2,interactive:false}).addTo(S.map).bindTooltip(esc(label));
+  if(S.tourMarker._path) S.tourMarker._path.style.pointerEvents="none";
+
+  const margeKm=Math.max(3,radiusM/1000+2);
+  const communesProches=new Set(
+    Object.entries(S.communes)
+      .filter(([code,c])=>haversineKm(lat,lon,c.lat,c.lon)<=margeKm)
+      .map(([code])=>code)
+  );
+  if(citycode) communesProches.add(citycode);
+
+  S.tour={point:{lat,lon},radiusM,communesProches:[...communesProches],label,results:[]};
+  S.tourSirets=null;
+  document.getElementById("tourClr").style.display="inline-block";
+  document.getElementById("tourList").style.display="inline-block";
+  document.getElementById("tourPrint").style.display="inline-block";
+
+  await recalculerTournee();
+  ouvrirTourPanel();
+}
 // Recalcule les résultats de la tournée active à partir du point/rayon déjà connus (aucune nouvelle
 // recherche d'adresse), en tenant compte du filtre secteur NAF courant. Appelée à la recherche initiale,
 // ET automatiquement à chaque coche/décoche d'un secteur NAF pendant qu'une tournée est active — c'est
