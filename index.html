@@ -298,7 +298,7 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
 
   <!-- Sidebar -->
   <div class="sb">
-    <div class="sb-h">
+  <div class="sb-h">
       <div class="rayon-h open" onclick="toggleRayonBlock('secBody',this)" style="margin-bottom:6px"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span class="r-lbl">Secteur d'activité</span><span class="arrow">▶</span></div>
             <div class="sw"><span class="si"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
         <input type="text" id="nafSearch" placeholder="Secteur d'activité..." disabled oninput="onNafSearch(this.value)">
@@ -308,6 +308,7 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
         Tout sélectionner (tous les secteurs)
       </label>
       <div id="countScopeIndicator" style="display:none;font-size:10px;color:#7c3aed;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:5px;padding:3px 7px;margin-top:5px;line-height:1.4"></div>
+    </div>
     <div class="chips rayon-body open" id="chipsArea" style="display:none"></div>
     <div class="sb-scroll rayon-body open" id="secBody">
       <div id="secTree"></div>
