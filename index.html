@@ -2790,12 +2790,24 @@ async function recalculerTournee(){
   let candidats=S.rows.filter(r=>communesProches.has(r.insee)&&effectifMatch(r.siret));
   if(S.selNAF.size>0) candidats=candidats.filter(r=>S.selNAF.has(r.naf));
 
-  const manquants=candidats.filter(r=>!S.geoCache[r.siret]);
+    const manquants=candidats.filter(r=>!S.geoCache[r.siret]);
   const MAX_SANS_NAF=250;
   if(S.selNAF.size===0 && manquants.length>MAX_SANS_NAF){
     stEl.innerHTML=`${manquants.length} adresses à géocoder dans le secteur — trop pour un coup sans filtre.<br>Sélectionne un secteur d'activité (ex : boulangerie) pour affiner.`;
     S.tour.results=[];
+    // Même sans lancer le géocodage massif, on calcule quand même le rayon à partir de ce qui est
+    // DÉJÀ géocodé — sinon les compteurs de la sidebar retombent sur toute la commune (des milliers
+    // d'entreprises) au lieu du vrai rayon choisi, ce qui est trompeur.
+    const tourSiretsPartiel=new Set();
+    S.rows.forEach(r=>{
+      if(!communesProches.has(r.insee)) return;
+      if(!effectifMatch(r.siret)) return;
+      const geo=S.geoCache[r.siret]; if(!geo) return;
+      if(haversineKm(lat,lon,geo.pos[0],geo.pos[1])*1000<=radiusM) tourSiretsPartiel.add(r.siret);
+    });
+    S.tourSirets=tourSiretsPartiel;
     renderTourMarkers();
+    render();
     if(S.panelMode==="tour") renderPanel();
     return;
   }
