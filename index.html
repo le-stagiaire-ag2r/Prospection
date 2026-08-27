@@ -1034,8 +1034,8 @@ function switchTab(tab){
 // ════════════════════════════════════════════════════════════════
 document.addEventListener("DOMContentLoaded", async function(){
   S.map=L.map("map",{zoomControl:true}).setView([50.629,3.057],10);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{
-    attribution:"&copy; OpenStreetMap &copy; CARTO",maxZoom:19
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+    attribution:"&copy; OpenStreetMap contributors",maxZoom:19
   }).addTo(S.map);
   setTimeout(function(){ if(S.map) S.map.invalidateSize(); },100);
   window.addEventListener("resize",function(){ if(S.map) S.map.invalidateSize(); });
