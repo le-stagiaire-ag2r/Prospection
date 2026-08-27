@@ -592,6 +592,7 @@ const S = {
   _geoTimer:null,
   geoJob:{running:false,paused:false,cancelled:false,total:0,done:0,ok:0},
   lastAction:null, _undoTimer:null,
+  _tourToken:0,
   effectifSelect:new Set(),
   cpStatutFilter:"__tous__",
   membres:[], equipes:[], membreActifId:"default", statsVue:"membre", zoneEditId:null,
@@ -2781,7 +2782,11 @@ async function demarrerTourneeAvecPoint(lat,lon,label,radiusM,citycode){
 // ET automatiquement à chaque coche/décoche d'un secteur NAF pendant qu'une tournée est active — c'est
 // ce qui permet la mise à jour en direct des points sur la carte sans retaper l'adresse.
 async function recalculerTournee(){
-  if(!S.tour||S.geoJob?.running) return; // pas de géocodage concurrent avec le pré-géocodage complet
+  if(!S.tour||S.geoJob?.running) return;
+  // Jeton unique à cette exécution : si une recherche plus récente démarre pendant qu'on calcule
+  // celle-ci (adresse tapée deux fois de suite trop vite), on abandonne proprement au lieu de
+  // laisser deux calculs se marcher dessus et écraser l'affichage avec des données périmées.
+  const monToken=++S._tourToken;
   const {point,radiusM,label}=S.tour;
   const {lat,lon}=point;
   const communesProches=new Set(S.tour.communesProches);
@@ -2790,14 +2795,12 @@ async function recalculerTournee(){
   let candidats=S.rows.filter(r=>communesProches.has(r.insee)&&effectifMatch(r.siret));
   if(S.selNAF.size>0) candidats=candidats.filter(r=>S.selNAF.has(r.naf));
 
-    const manquants=candidats.filter(r=>!S.geoCache[r.siret]);
+  const manquants=candidats.filter(r=>!S.geoCache[r.siret]);
   const MAX_SANS_NAF=250;
   if(S.selNAF.size===0 && manquants.length>MAX_SANS_NAF){
+    if(monToken!==S._tourToken) return;
     stEl.innerHTML=`${manquants.length} adresses à géocoder dans le secteur — trop pour un coup sans filtre.<br>Sélectionne un secteur d'activité (ex : boulangerie) pour affiner.`;
     S.tour.results=[];
-    // Même sans lancer le géocodage massif, on calcule quand même le rayon à partir de ce qui est
-    // DÉJÀ géocodé — sinon les compteurs de la sidebar retombent sur toute la commune (des milliers
-    // d'entreprises) au lieu du vrai rayon choisi, ce qui est trompeur.
     const tourSiretsPartiel=new Set();
     S.rows.forEach(r=>{
       if(!communesProches.has(r.insee)) return;
@@ -2819,6 +2822,7 @@ async function recalculerTournee(){
     if(aGeoc.length){
       stEl.textContent=`Géocodage de ${aGeoc.length} adresses...`;
       await geocodeBatch(aGeoc);
+      if(monToken!==S._tourToken) return; // une recherche plus récente a pris le relais entre-temps
     }
   }
 
@@ -2832,9 +2836,9 @@ async function recalculerTournee(){
     }
   });
   results.sort((a,b)=>a.distM-b.distM);
+  if(monToken!==S._tourToken) return;
   S.tour.results=calculerItineraireTournee(results,lat,lon);
 
-  // Comptage tous secteurs confondus (indépendant du filtre NAF courant), pour les compteurs de la sidebar.
   const tourSirets=new Set();
   S.rows.forEach(r=>{
     if(!communesProches.has(r.insee)) return;
@@ -2842,13 +2846,15 @@ async function recalculerTournee(){
     const geo=S.geoCache[r.siret]; if(!geo) return;
     if(haversineKm(lat,lon,geo.pos[0],geo.pos[1])*1000<=radiusM) tourSirets.add(r.siret);
   });
+  if(monToken!==S._tourToken) return;
   S.tourSirets=tourSirets;
 
   renderTourMarkers();
   render();
 
+  if(monToken!==S._tourToken) return;
   const rayWarn=S.rayC?' <span style="color:#c2530f">· Rayon commune encore actif, pense à l\'effacer</span>':'';
-  stEl.innerHTML='<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> '+label+rayWarn;
+  stEl.innerHTML='<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> '+esc(label)+rayWarn;
   if(S.panelMode==="tour") renderPanel();
   toast(`${results.length} entreprise${results.length>1?"s":""} trouvée${results.length>1?"s":""} dans ${radiusM} m`);
 }
