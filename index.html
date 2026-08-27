@@ -2795,11 +2795,17 @@ async function recalculerTournee(){
   let candidats=S.rows.filter(r=>communesProches.has(r.insee)&&effectifMatch(r.siret));
   if(S.selNAF.size>0) candidats=candidats.filter(r=>S.selNAF.has(r.naf));
 
-  const manquants=candidats.filter(r=>!S.geoCache[r.siret]);
+    const manquants=candidats.filter(r=>!S.geoCache[r.siret]);
+  // Le seuil ci-dessous comptait bêtement toutes les adresses dans la zone de marge de 3km, même
+  // pour un rayon de tournée minuscule (100m) — ce qui déclenchait l'avertissement à tort. On estime
+  // plutôt le nombre RÉEL d'adresses dans le vrai rayon choisi, au prorata de la surface des cercles.
+  const margeKm=Math.max(3,radiusM/1000+2);
+  const ratioSurface=Math.pow((radiusM/1000)/margeKm,2);
+  const manquantsEstimes=Math.round(manquants.length*ratioSurface);
   const MAX_SANS_NAF=250;
-  if(S.selNAF.size===0 && manquants.length>MAX_SANS_NAF){
+  if(S.selNAF.size===0 && manquantsEstimes>MAX_SANS_NAF){
     if(monToken!==S._tourToken) return;
-    stEl.innerHTML=`${manquants.length} adresses à géocoder dans le secteur — trop pour un coup sans filtre.<br>Sélectionne un secteur d'activité (ex : boulangerie) pour affiner.`;
+    stEl.innerHTML=`~${manquantsEstimes} adresses à géocoder estimées dans le rayon — trop pour un coup sans filtre.<br>Sélectionne un secteur d'activité (ex : boulangerie) pour affiner.`;
     S.tour.results=[];
     const tourSiretsPartiel=new Set();
     S.rows.forEach(r=>{
