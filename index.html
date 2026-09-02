@@ -2467,8 +2467,8 @@ window.moSetStatut=moSetStatut;
 
 function setRappel(siret,val){
   const e=getEntry(siret); e.rappel=val; saveEntry(siret,e);
-  toast(val?"Rappel enregistré":"Rappel supprimé");
-  updateDash(); refreshActiveView(); updateRappelsBadge();
+   toast(val?"Rappel enregistré":"Rappel supprimé");
+  refreshActiveView(); updateRappelsBadge();
   // Refresh modale
   const inp=document.getElementById("moRap");
   if(inp) inp.value=val;
