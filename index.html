@@ -860,13 +860,17 @@ async function importerEquipesExcel(file){
     for(const sheetName of wb.SheetNames){
       const rows=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{defval:""});
       if(!rows.length) continue;
-      let eq=S.equipes.find(e=>e.nom.toLowerCase()===sheetName.toLowerCase());
-      let equipeId;
-      if(eq){ equipeId=eq.id; }
-      else{
-        equipeId="e"+Date.now()+"_"+nbEquipes;
-        batch.set(db.collection("equipes").doc(equipeId),{nom:sheetName});
-        nbEquipes++;
+            const nomNorm=sheetName.trim().toUpperCase();
+      const sansEquipe=(nomNorm==="SANS EQUIPE"||nomNorm==="SANS ÉQUIPE"||nomNorm==="ADMIN"||nomNorm==="ADMINISTRATION");
+      let equipeId="";
+      if(!sansEquipe){
+        let eq=S.equipes.find(e=>e.nom.toLowerCase()===sheetName.toLowerCase());
+        if(eq){ equipeId=eq.id; }
+        else{
+          equipeId="e"+Date.now()+"_"+nbEquipes;
+          batch.set(db.collection("equipes").doc(equipeId),{nom:sheetName});
+          nbEquipes++;
+        }
       }
       rows.forEach((row,idx)=>{
         const nom=String(row.Nom||row.nom||"").trim(); if(!nom) return;
