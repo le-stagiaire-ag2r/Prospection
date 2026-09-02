@@ -2468,12 +2468,24 @@ window.moSetStatut=moSetStatut;
 function setRappel(siret,val){
   const e=getEntry(siret); e.rappel=val; saveEntry(siret,e);
   toast(val?"Rappel enregistré":"Rappel supprimé");
-  refreshActiveView();
+  updateDash(); refreshActiveView(); updateRappelsBadge();
   // Refresh modale
   const inp=document.getElementById("moRap");
   if(inp) inp.value=val;
 }
 window.setRappel=setRappel;
+
+// Compte les rappels dus aujourd'hui ou en retard, affiche le total sur l'onglet "Aujourd'hui".
+function updateRappelsBadge(){
+  const today=new Date().toISOString().slice(0,10);
+  const suivi=loadSuivi();
+  let n=0;
+  Object.values(suivi).forEach(e=>{ if(e.rappel&&e.rappel<=today) n++; });
+  const badge=document.getElementById("rappelsBadge");
+  if(!badge) return;
+  if(n>0){ badge.textContent=n>99?"99+":n; badge.style.display="inline-block"; }
+  else { badge.style.display="none"; }
+}
 
 function addJ(siret){
   const type=document.getElementById("jType").value;
