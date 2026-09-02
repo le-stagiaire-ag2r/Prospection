@@ -221,6 +221,11 @@ tbody td{padding:6px 9px;vertical-align:middle;}
 /* ── Feuille de tournée imprimable ── */
 #printSheet{display:none;}
 .ps-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f2438;padding-bottom:10px;margin-bottom:14px;}
+.ps-logo{height:42px;margin-bottom:8px;display:block;}
+.ps-brand{font-size:10.5px;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;}
+.ps-oui-non{display:flex;gap:10px;justify-content:center;white-space:nowrap;}
+.ps-oui-non label{display:flex;align-items:center;gap:3px;font-size:10px;color:#555;cursor:default;}
+.ps-oui-non .ps-check{width:13px;height:13px;margin:0;}
 .ps-title{font-size:19px;font-weight:800;}
 .ps-sub{font-size:12px;color:#555;margin-top:3px;}
 .ps-meta{text-align:right;font-size:11px;color:#555;line-height:1.6;}
@@ -543,7 +548,9 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
-<div id="printSheet"></div>
+<div id="printSheet">
+  <img class="ps-logo" id="psLogoImg" src="logo_ag2r.png" onerror="this.style.display='none'">
+</div>
 <div class="toast" id="undoBar" style="display:flex;align-items:center;gap:10px;bottom:60px">
   <span id="undoText"></span>
   <button onclick="annulerDernierStatut()" style="background:#fff;color:#0f2438;border:none;border-radius:5px;padding:3px 9px;font-size:11.5px;font-weight:700;cursor:pointer;flex-shrink:0">Annuler</button>
@@ -2993,35 +3000,45 @@ window.effacerTournee=effacerTournee;
 // choisit "Enregistrer en PDF" dans la boîte de dialogue s'il veut un fichier plutôt qu'un papier.
 function imprimerTournee(){
   if(!S.tour||!S.tour.results.length){ toast("Aucune tournée active à imprimer."); return; }
-  const suivi=loadSuivi();
-  const today=new Date().toLocaleDateString("fr-FR",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
   const commercial=getCommercial();
+  const today=new Date().toLocaleDateString("fr-FR",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
   const lignes=S.tour.results.map(r=>{
     const full=findFull(r.siret);
-    const e=suivi[r.siret]||{};
-    const st=ST[e.statut||""]||ST[""];
-    const adresse=full?.Adresse||"";
     const distLabel=r.distM<1000?`${Math.round(r.distM)} m`:`${(r.distM/1000).toFixed(1)} km`;
+    const naf=full?.Code_NAF||"";
+    const activite=full?.Activite||"";
+    const adresse=[full?.Adresse,full?.Commune].filter(Boolean).join(", ");
+    const dirigeant=[full?.Dirigeant_Nom,full?.Dirigeant_Role].filter(Boolean).join(" — ");
     return `<tr>
       <td style="text-align:center"><span class="ps-ordre">${r.ordre}</span></td>
-      <td><span class="ps-check"></span></td>
-      <td><b>${esc((r.nom||"—").substring(0,40))}</b><br><span style="color:#666">${esc((r.activite||"").substring(0,45))}</span></td>
-      <td>${esc(adresse.substring(0,55))}</td>
-      <td>${distLabel}</td>
-      <td>${st.label.replace("●","").trim()}</td>
+      <td style="white-space:nowrap">${distLabel}</td>
+      <td>
+        <b>${esc((r.nom||"—").substring(0,40))}</b><br>
+        <span style="color:#666;font-size:10.5px">${esc(naf)} ${esc(activite.substring(0,45))}</span><br>
+        <span style="color:#666;font-size:10.5px">${esc(adresse.substring(0,60))}</span>
+        ${dirigeant?`<br><span style="color:#666;font-size:10.5px">${esc(dirigeant.substring(0,40))}</span>`:""}
+      </td>
+      <td>
+        <div class="ps-oui-non">
+          <label><span class="ps-check"></span>Oui</label>
+          <label><span class="ps-check"></span>Non</label>
+        </div>
+      </td>
       <td></td>
     </tr>`;
   }).join("");
   document.getElementById("printSheet").innerHTML=`
+    <img class="ps-logo" id="psLogoImg" src="logo_ag2r.png" onerror="this.style.display='none'">
     <div class="ps-head">
       <div>
-        <div class="ps-title">Tournée terrain</div>
+        <div class="ps-brand">AG2R La Mondiale — Direction Régionale Normandie Hauts-de-France</div>
+        <div class="ps-title">Fiche de tournée commerciale</div>
         <div class="ps-sub">${esc(S.tour.label)}<br>Rayon ${S.tour.radiusM} m · ${S.tour.results.length} entreprises</div>
       </div>
       <div class="ps-meta">${today}${commercial?"<br>Commercial : "+esc(commercial):""}</div>
     </div>
     <table class="ps-table">
-      <thead><tr><th>N°</th><th>Fait</th><th>Entreprise</th><th>Adresse</th><th>Distance</th><th>Statut</th><th>Note</th></tr></thead>
+      <thead><tr><th>N°</th><th>Distance</th><th>Entreprise</th><th>Connu du client ?</th><th>Note</th></tr></thead>
       <tbody>${lignes}</tbody>
     </table>
     <div class="ps-foot">Généré depuis MEL Pro le ${new Date().toLocaleString("fr-FR")} — parcours dans l'ordre de proximité à pied depuis le point de départ.</div>
