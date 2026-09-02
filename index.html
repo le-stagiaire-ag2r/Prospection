@@ -871,7 +871,8 @@ async function importerEquipesExcel(file){
       rows.forEach((row,idx)=>{
         const nom=String(row.Nom||row.nom||"").trim(); if(!nom) return;
         const roleRaw=String(row.Role||row.role||"").trim().toLowerCase();
-        const role=["conseiller","manager","administrateur"].includes(roleRaw)?roleRaw:"conseiller";
+        const correspondanceRole={commercial:"conseiller",conseiller:"conseiller",manager:"manager",admin:"administrateur",administrateur:"administrateur"};
+        const role=correspondanceRole[roleRaw]||"conseiller";
         const dejaExiste=S.membres.some(m=>m.nom.toLowerCase()===nom.toLowerCase()&&m.equipeId===equipeId);
         if(dejaExiste) return;
         const id="m"+Date.now()+"_"+nbMembres+"_"+idx;
