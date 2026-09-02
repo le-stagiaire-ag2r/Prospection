@@ -260,7 +260,7 @@ table.ps-table td:last-child{height:44px;}
   <div class="ls-bar-wrap"><div class="ls-bar" id="lsBar"></div></div>
 </div>
 <!-- Écran d'accueil : demande une adresse avant de montrer la carte -->
-<div class="loading-screen show" id="welcomeScreen" style="z-index:6000">
+<div class="loading-screen" id="welcomeScreen" style="z-index:6000">
   <div style="max-width:380px;width:92%;text-align:center">
     <div class="ls-title" style="margin-bottom:6px">Où es-tu ?</div>
     <div class="ls-sub" style="margin-bottom:16px">Entre une adresse (la tienne, ou celle d'un futur RDV) pour voir directement les entreprises autour.</div>
@@ -653,7 +653,7 @@ const S = {
   effectifSelect:new Set(),
   cpStatutFilter:"__tous__",
    membres:[], equipes:[], membreActifId:"default", statsVue:"membre", zoneEditId:null,
-  modeInvite:false,
+  modeInvite:false, _welcomeHandled:false,
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -683,15 +683,20 @@ function ecouterEquipesEtMembres(){
       await db.collection("membres").doc("default").set({nom:"Membre principal",equipeId:"",role:"administrateur"});
       return;
     }
-        S.membres=snap.docs.map(d=>({id:d.id,...d.data()}));
-    const actifStocke=getMembreActifId();
-    if(actifStocke==="__invite__"){
-      S.modeInvite=true; S.membreActifId="";
-    } else if(actifStocke&&S.membres.some(m=>m.id===actifStocke)){
-      S.membreActifId=actifStocke; S.modeInvite=false;
-    } else {
-      S.membreActifId=""; S.modeInvite=false;
-      afficherProfilScreen();
+           S.membres=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(!S._welcomeHandled){
+      S._welcomeHandled=true;
+      const actifStocke=getMembreActifId();
+      if(actifStocke==="__invite__"){
+        S.modeInvite=true; S.membreActifId="";
+        document.getElementById("welcomeScreen").classList.add("show");
+      } else if(actifStocke&&S.membres.some(m=>m.id===actifStocke)){
+        S.membreActifId=actifStocke; S.modeInvite=false;
+        document.getElementById("welcomeScreen").classList.add("show");
+      } else {
+        S.membreActifId=""; S.modeInvite=false;
+        afficherProfilScreen();
+      }
     }
     updateCommercialPill();
     renderMembresListe();
@@ -726,6 +731,7 @@ function selectionnerProfilInitial(id){
   setMembreActifIdStockage(id);
   updateCommercialPill();
   document.getElementById("profilScreen").classList.remove("show");
+  document.getElementById("welcomeScreen").classList.add("show");
   render(); refreshActiveView();
   toast(`Bienvenue, ${getCommercial()}`);
 }
@@ -735,6 +741,7 @@ function continuerEnInvite(){
   setMembreActifIdStockage("__invite__");
   updateCommercialPill();
   document.getElementById("profilScreen").classList.remove("show");
+  document.getElementById("welcomeScreen").classList.add("show");
   render(); refreshActiveView();
   toast("Mode invité — lecture seule");
 }
@@ -1736,9 +1743,12 @@ async function demarrerDepuisEcranAccueil(){
   const stEl=document.getElementById("welcomeSt");
   if(!addr){ stEl.textContent="Entre une adresse pour continuer."; return; }
   stEl.textContent="Recherche de l'adresse...";
-  let tentatives=0;
-  while(!S.rows.length && tentatives<50){ await pause(100); tentatives++; }
-  if(!S.rows.length){ stEl.textContent="Les données ne se sont pas chargées — recharge la page."; return; }
+    let tentatives=0;
+  while(!S.rows.length && tentatives<300){
+    stEl.textContent=tentatives<20?"Recherche de l'adresse...":"Chargement des données en cours (premier lancement, ça peut prendre 20-30s)...";
+    await pause(100); tentatives++;
+  }
+  if(!S.rows.length){ stEl.textContent="Le chargement prend trop de temps — vérifie ta connexion et recharge la page."; return; }
   if(!S.full){ const ok=await chargerFull(); if(!ok){ stEl.textContent="Impossible de charger les données."; return; } }
   try{
     const res=await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(addr)}&limit=1`);
