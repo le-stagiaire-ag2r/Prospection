@@ -221,7 +221,7 @@ tbody td{padding:6px 9px;vertical-align:middle;}
 /* ── Feuille de tournée imprimable ── */
 #printSheet{display:none;}
 .ps-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f2438;padding-bottom:10px;margin-bottom:14px;}
-.ps-logo{height:42px;margin-bottom:8px;display:block;}
+.ps-logo{height:88px;margin-bottom:10px;display:block;}
 .ps-brand{font-size:10.5px;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;}
 .ps-oui-non{display:flex;gap:10px;justify-content:center;white-space:nowrap;}
 .ps-oui-non label{display:flex;align-items:center;gap:3px;font-size:10px;color:#555;cursor:default;}
@@ -234,6 +234,8 @@ table.ps-table thead{display:table-header-group;}
 table.ps-table tr{page-break-inside:avoid;}
 table.ps-table th{text-align:left;padding:6px 7px;background:#eef1f3;border:1px solid #ccc;font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
 table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
+table.ps-table th:last-child, table.ps-table td:last-child{width:150px;}
+table.ps-table td:last-child{height:44px;}
 .ps-ordre{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#0f2438;color:#fff;font-weight:700;font-size:10px;}
 .ps-check{width:16px;height:16px;border:1.5px solid #888;border-radius:3px;display:inline-block;}
 .ps-foot{margin-top:16px;font-size:10px;color:#888;}
@@ -266,6 +268,14 @@ table.ps-table td{padding:6px 7px;border:1px solid #ccc;vertical-align:top;}
     <button class="btn btn-p" onclick="demarrerDepuisEcranAccueil()" style="width:100%;justify-content:center;margin-bottom:10px">Voir la carte</button>
     <button class="btn btn-g" onclick="passerEcranAccueil()" style="width:100%;justify-content:center;font-size:11.5px">Passer, explorer sans adresse</button>
     <div id="welcomeSt" style="font-size:11.5px;color:#c2530f;margin-top:8px"></div>
+  </div>
+</div>
+<div class="loading-screen" id="profilScreen" style="z-index:6500">
+  <div style="max-width:420px;width:92%;text-align:center;max-height:85vh;overflow-y:auto">
+    <div class="ls-title" style="margin-bottom:6px">Qui êtes-vous ?</div>
+    <div class="ls-sub" style="margin-bottom:16px">Sélectionne ton profil pour commencer. Ce choix est mémorisé sur cet appareil.</div>
+    <div id="profilListe" style="text-align:left;margin-bottom:14px"></div>
+    <button class="btn btn-g" onclick="continuerEnInvite()" style="width:100%;justify-content:center">Continuer en invité (lecture seule)</button>
   </div>
 </div>
 <!-- Header -->
@@ -642,7 +652,8 @@ const S = {
   _suiviCache:{},
   effectifSelect:new Set(),
   cpStatutFilter:"__tous__",
-  membres:[], equipes:[], membreActifId:"default", statsVue:"membre", zoneEditId:null,
+   membres:[], equipes:[], membreActifId:"default", statsVue:"membre", zoneEditId:null,
+  modeInvite:false,
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -672,11 +683,16 @@ function ecouterEquipesEtMembres(){
       await db.collection("membres").doc("default").set({nom:"Membre principal",equipeId:"",role:"administrateur"});
       return;
     }
-    S.membres=snap.docs.map(d=>({id:d.id,...d.data()}));
-    let actif=getMembreActifId();
-    if(!actif||!S.membres.some(m=>m.id===actif)) actif=S.membres[0].id;
-    S.membreActifId=actif;
-    setMembreActifIdStockage(actif);
+        S.membres=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const actifStocke=getMembreActifId();
+    if(actifStocke==="__invite__"){
+      S.modeInvite=true; S.membreActifId="";
+    } else if(actifStocke&&S.membres.some(m=>m.id===actifStocke)){
+      S.membreActifId=actifStocke; S.modeInvite=false;
+    } else {
+      S.membreActifId=""; S.modeInvite=false;
+      afficherProfilScreen();
+    }
     updateCommercialPill();
     renderMembresListe();
   }, err=>console.error("[membres]",err));
@@ -694,7 +710,36 @@ function updateCommercialPill(){
   const dot=document.getElementById("commercialDot");
   if(dot) dot.style.background=S.membreActifId?couleurMembre(S.membreActifId):"#94a3b8";
 }
-
+function afficherProfilScreen(){
+  const box=document.getElementById("profilListe");
+  const groupes=[{id:"",nom:"Sans équipe"}].concat(S.equipes);
+  box.innerHTML=groupes.map(eq=>{
+    const membresEq=S.membres.filter(m=>(m.equipeId||"")===eq.id);
+    if(!membresEq.length) return "";
+    const lignes=membresEq.map(m=>`<button class="btn btn-g" onclick="selectionnerProfilInitial('${m.id}')" style="width:100%;justify-content:flex-start;margin-bottom:5px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${couleurMembre(m.id)};margin-right:8px"></span>${esc(m.nom)}</button>`).join("");
+    return `<div style="font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--ink-s);margin:10px 0 5px">${esc(eq.nom)}</div>${lignes}`;
+  }).join("")||"<div style='font-size:12px;color:var(--ink-s)'>Aucun membre disponible.</div>";
+  document.getElementById("profilScreen").classList.add("show");
+}
+function selectionnerProfilInitial(id){
+  S.membreActifId=id; S.modeInvite=false;
+  setMembreActifIdStockage(id);
+  updateCommercialPill();
+  document.getElementById("profilScreen").classList.remove("show");
+  render(); refreshActiveView();
+  toast(`Bienvenue, ${getCommercial()}`);
+}
+window.selectionnerProfilInitial=selectionnerProfilInitial;
+function continuerEnInvite(){
+  S.modeInvite=true; S.membreActifId="";
+  setMembreActifIdStockage("__invite__");
+  updateCommercialPill();
+  document.getElementById("profilScreen").classList.remove("show");
+  render(); refreshActiveView();
+  toast("Mode invité — lecture seule");
+}
+window.continuerEnInvite=continuerEnInvite;
+  
 function ouvrirGestionMembres(){ renderMembresListe(); document.getElementById("moCommercial").classList.add("open"); }
 window.ouvrirGestionMembres=ouvrirGestionMembres;
 function fermerGestionMembres(){ document.getElementById("moCommercial").classList.remove("open"); }
@@ -733,7 +778,7 @@ function renderMembresListe(){
 }
 
 function selectionnerMembre(id){
-  S.membreActifId=id; setMembreActifIdStockage(id);
+  S.membreActifId=id; S.modeInvite=false; setMembreActifIdStockage(id);
   updateCommercialPill(); renderMembresListe(); render(); refreshActiveView();
   if(S.panelMode) renderPanel();
   toast(`Membre actif : ${getCommercial()}`);
@@ -905,6 +950,7 @@ window.importerEquipesExcel=importerEquipesExcel;
 
 function loadSuivi(){ return S._suiviCache||{}; }
 function saveSuivi(d){
+  if(S.modeInvite){ toast("Mode invité — lecture seule. Connecte-toi pour modifier."); return; }
   S._suiviCache=d;
   const batch=db.batch();
   Object.entries(d).forEach(([siret,e])=>{ batch.set(db.collection("suivi").doc(siret),e); });
@@ -932,6 +978,7 @@ async function restaurerSauvegardeSecours(){
 }
 function getEntry(siret){ return (S._suiviCache&&S._suiviCache[siret])||{statut:"",journal:[],rappel:""}; }
 function saveEntry(siret,e){
+  if(S.modeInvite){ toast("Mode invité — lecture seule. Connecte-toi pour modifier."); return; }
   if(!S._suiviCache) S._suiviCache={};
   S._suiviCache[siret]=e; // mise à jour immédiate locale, sans attendre le réseau
   db.collection("suivi").doc(siret).set(e).catch(err=>{ console.error("[saveEntry]",err); toast("Erreur de synchronisation — vérifie ta connexion."); });
@@ -3043,7 +3090,7 @@ function imprimerTournee(){
       <thead><tr><th>N°</th><th>Distance</th><th>Entreprise</th><th>Connu du client ?</th><th>Note</th></tr></thead>
       <tbody>${lignes}</tbody>
     </table>
-    <div class="ps-foot">Généré depuis MEL Pro le ${new Date().toLocaleString("fr-FR")} — parcours dans l'ordre de proximité à pied depuis le point de départ.</div>
+       <div class="ps-foot">Document généré le ${new Date().toLocaleString("fr-FR")} — parcours dans l'ordre de proximité à pied depuis le point de départ.</div>>
   `;
   setTimeout(()=>window.print(),50);
 }
