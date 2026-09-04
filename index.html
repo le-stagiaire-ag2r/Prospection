@@ -3070,7 +3070,6 @@ function imprimerTournee(){
     return `<tr>
       <td style="text-align:center"><span class="ps-ordre">${r.ordre}</span></td>
       <td>
-              <td>
         <b>${esc((r.nom||"—").substring(0,40))}</b><br>
         <span style="color:#666;font-size:10.5px">${esc(naf)} ${esc(activite.substring(0,45))}</span><br>
         <span style="color:#666;font-size:10.5px">${esc(adresse.substring(0,60))}</span>
@@ -3092,7 +3091,7 @@ function imprimerTournee(){
       <div class="ps-meta">${today}${commercial?"<br>Commercial : "+esc(commercial):""}</div>
     </div>
     <table class="ps-table">
-            <thead><tr><th style="width:32px">N°</th><th>Entreprise</th><th>Connu du client ? / Commentaire</th></tr></thead>
+      <thead><tr><th style="width:32px">N°</th><th>Entreprise</th><th>Commentaire</th></tr></thead>
       <tbody>${lignes}</tbody>
     </table>
     <div class="ps-foot">Document généré le ${new Date().toLocaleString("fr-FR")}.</div>
