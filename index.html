@@ -517,7 +517,11 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
     <div class="mo-body">
            <div id="membresListe"></div>
       <input type="file" id="importCacheMembreInput" accept=".json" style="display:none" onchange="importerCacheMembre(this.dataset.membreId,this.files[0])">
-            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+                  <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)" id="blocSignalements">
+        <div class="j-title">🚩 Signalements à traiter</div>
+        <div id="signalementsBox" style="max-height:150px;overflow-y:auto"></div>
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
           <div class="j-title" style="margin-bottom:0;flex:1">Activité récente</div>
           <select id="activiteFiltre" onchange="renderActiviteRecente()" style="padding:4px 6px;border:1px solid var(--line);border-radius:var(--r);font-size:10.5px;font-family:var(--sans)">
@@ -768,6 +772,8 @@ window.continuerEnInvite=continuerEnInvite;
 function ouvrirGestionMembres(){
   renderMembresListe();
   renderActiviteRecente();
+  renderSignalements();
+  document.getElementById("blocSignalements").style.display=estManager()?"block":"none";
   document.getElementById("moCommercial").classList.add("open");
  }
 window.ouvrirGestionMembres=ouvrirGestionMembres;
@@ -2516,7 +2522,51 @@ function renderActiviteRecente(){
     </div>`;
   }).join("")||"<div style='padding:8px;font-size:11px;color:var(--ink-s)'>Aucune activité récente.</div>";
 }
+// Signale une entreprise comme fermée/déménagée — visible immédiatement par toute l'équipe (donnée
+// partagée) et listée pour le manager dans le modal de gestion, pour nettoyer la qualité du fichier.
+function signalerEntreprise(siret){
+  const motif=confirm("Fermée définitivement ?\n\nOK = Fermée   Annuler = Déménagée") ? "ferme" : "demenage";
+  const texte=prompt("Précision (optionnel) :","")||"";
+  const e=getEntry(siret);
+  e.signalement={motif,date:new Date().toISOString(),commercial:getCommercial()||"",texte};
+  saveEntry(siret,e);
+  ouvrirModal(siret);
+  toast("Signalement enregistré.");
+}
+window.signalerEntreprise=signalerEntreprise;
 
+function traiterSignalement(siret){
+  const e=getEntry(siret);
+  delete e.signalement;
+  saveEntry(siret,e);
+  renderSignalements();
+  toast("Signalement traité.");
+}
+window.traiterSignalement=traiterSignalement;
+
+function renderSignalements(){
+  const box=document.getElementById("signalementsBox"); if(!box) return;
+  const items=Object.entries(S._suiviCache||{}).filter(([,e])=>e.signalement);
+  box.innerHTML=items.map(([siret,e])=>{
+    const full=findFull(siret);
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:11px">
+      <b>${esc(full?.Nom||"—")}</b> — ${e.signalement.motif==="ferme"?"fermée":"déménagée"} (${esc(e.signalement.commercial||"—")})
+      <button class="btn-xs" onclick="traiterSignalement('${siret}')" style="float:right">Traiter</button>
+    </div>`;
+  }).join("")||"<div style='padding:8px;font-size:11px;color:var(--ink-s)'>Aucun signalement en attente.</div>";
+}
+
+// Numéro trouvé physiquement sur le terrain (absent du fichier source) — stocké sur l'entrée
+// partagée, donc visible instantanément par toute l'équipe dès l'enregistrement.
+function enregistrerTelephoneTerrain(siret){
+  const val=document.getElementById("moTelTerrain").value.trim();
+  const e=getEntry(siret);
+  e.telephoneTerrain=val;
+  saveEntry(siret,e);
+  toast(val?"Téléphone enregistré.":"Téléphone retiré.");
+}
+window.enregistrerTelephoneTerrain=enregistrerTelephoneTerrain;
+  
 async function ouvrirModal(siret){
   if(!siret) return;
   if(!S.full){ const ok=await chargerFull(); if(!ok) return; }
@@ -2544,7 +2594,12 @@ document.getElementById("moSub").innerHTML=
   document.getElementById("moBody").innerHTML=`
     ${blocHistorique}
     <div style="margin-bottom:11px">
-      <div class="j-title" style="margin-bottom:6px">Statut</div>
+            <div class="j-title" style="margin-bottom:6px">Statut</div>
+      ${e.signalement?`<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:var(--r);padding:7px 9px;margin-bottom:9px;font-size:11px;color:#991b1b">🚩 Signalée <b>${e.signalement.motif==="ferme"?"fermée":"déménagée"}</b> par ${esc(e.signalement.commercial||"—")} le ${new Date(e.signalement.date).toLocaleDateString("fr-FR")}${e.signalement.texte?" — "+esc(e.signalement.texte):""}</div>`:`<button class="btn btn-g" onclick="signalerEntreprise('${siret}')" style="width:100%;justify-content:center;margin-bottom:9px;font-size:11px;color:#991b1b">🚩 Signaler fermée / déménagée</button>`}
+            <div style="display:flex;gap:6px;margin-bottom:9px">
+        <input type="text" id="moTelTerrain" placeholder="Téléphone trouvé sur place..." value="${esc(e.telephoneTerrain||"")}" style="flex:1;padding:6px 8px;border:1px solid var(--line);border-radius:var(--r);font-size:12px;font-family:var(--sans)" onkeydown="if(event.key==='Enter')enregistrerTelephoneTerrain('${siret}')">
+        <button class="btn btn-p" onclick="enregistrerTelephoneTerrain('${siret}')" style="flex-shrink:0">OK</button>
+      </div>
       <div class="st-btns" id="moStBtns">
         ${Object.entries(ST).map(([k,v])=>`<button onclick="moSetStatut('${siret}','${k}',this)" style="background:${v.bg};color:${v.color}" class="${(e.statut||"")===k?"active":""}">${v.label}</button>`).join("")}
       </div>
@@ -3357,6 +3412,24 @@ function getEvolutionActivite(){
     }).join("")}
   </div>`;
 }
+// Pour chaque secteur NAF, le pourcentage de contacts qui ont abouti à un RDV ou un "chaud" —
+// permet de repérer les secteurs qui convertissent le mieux, invisible à l'œil sur la carte.
+function getConversionParSecteur(suiviF){
+  const parNaf={};
+  Object.entries(suiviF).forEach(([siret,e])=>{
+    if(!e.statut) return;
+    const full=findFull(siret); const naf=full?.Code_NAF; if(!naf) return;
+    const label=NAF_LABELS[naf]||naf;
+    if(!parNaf[label]) parNaf[label]={contactees:0,conversions:0};
+    parNaf[label].contactees++;
+    if(e.statut==="rdv"||e.statut==="chaud") parNaf[label].conversions++;
+  });
+  const lignes=Object.entries(parNaf).filter(([,v])=>v.contactees>=3)
+    .map(([label,v])=>({label,...v,taux:Math.round(v.conversions/v.contactees*100)}))
+    .sort((a,b)=>b.taux-a.taux).slice(0,10);
+  return lignes.map(l=>`<div class="sd"><div class="sl">${esc(l.label.substring(0,32))}</div><div class="sn">${l.taux}% (${l.conversions}/${l.contactees})</div></div>`).join("")
+    ||"<div style='padding:8px;font-size:11px;color:var(--ink-s)'>Pas assez de données (minimum 3 contacts par secteur).</div>";
+}
   
 function updateStats(){
   const suivi=chargerSuiviPourVue(S.statsVue); const fSirets=getFiltresSirets();
@@ -3375,7 +3448,8 @@ function updateStats(){
         }).join("")}
       </div>
       <div class="db"><div class="db-t">Top communes contactées</div>${getTopCommunes(suiviF)}</div>
-      <div class="db"><div class="db-t">Top secteurs NAF</div>${getTopNAF(suiviF)}</div>
+            <div class="db"><div class="db-t">Top secteurs NAF</div>${getTopNAF(suiviF)}</div>
+      <div class="db"><div class="db-t">Taux de conversion par secteur (min. 3 contacts)</div>${getConversionParSecteur(suiviF)}</div>
            <div class="db"><div class="db-t">Journal — volume par type</div>${getJournalStats(suiviF)}</div>
       <div class="db" style="grid-column:1/-1"><div class="db-t">Évolution de l'activité (7 derniers jours)</div>${getEvolutionActivite()}</div>
     </div>
