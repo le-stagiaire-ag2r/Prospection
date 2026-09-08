@@ -217,7 +217,9 @@ tbody td{padding:6px 9px;vertical-align:middle;}
 /* ── Toast ── */
 .toast{position:fixed;bottom:18px;right:18px;background:#0f2438;color:#fff;padding:9px 14px;border-radius:var(--r);font-size:12px;z-index:9999;opacity:0;transform:translateY(8px);transition:all .25s;max-width:320px;}
 .toast.show{opacity:1;transform:translateY(0);}
-
+body.mode-invite .cp-sel, body.mode-invite #jTxt, body.mode-invite #jType, body.mode-invite .btn-p[onclick*="addJ"], body.mode-invite #moRap{
+  pointer-events:none; opacity:0.5; cursor:not-allowed;
+}
 /* ── Feuille de tournée imprimable ── */
 #printSheet{display:none;}
 .ps-head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f2438;padding-bottom:10px;margin-bottom:14px;}
@@ -391,7 +393,6 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
           <option value="1000">1 km</option>
         </select>
         <button class="btn btn-p" id="btnTour" onclick="lancerTournee()" style="flex-shrink:0" title="Rechercher cette adresse"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
-        <button class="btn btn-o" id="btnTourGPS" onclick="lancerTourneeDepuisPosition()" style="flex-shrink:0" title="Utiliser ma position actuelle (GPS)"><svg class="ic" style="margin:0" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg></button>
       </div>
       <div class="r-st" id="tourSt"></div>
       <div style="display:flex;gap:8px;margin-top:3px;flex-wrap:wrap">
@@ -514,8 +515,12 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
       <button class="mo-close" onclick="fermerGestionMembres()">✕</button>
     </div>
     <div class="mo-body">
-      <div id="membresListe"></div>
+           <div id="membresListe"></div>
       <input type="file" id="importCacheMembreInput" accept=".json" style="display:none" onchange="importerCacheMembre(this.dataset.membreId,this.files[0])">
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+        <div class="j-title">Activité récente de l'équipe</div>
+        <div id="activiteRecenteBox" style="max-height:200px;overflow-y:auto"></div>
+      </div>
       <button class="btn btn-v" onclick="exporterRapportEquipe()" style="width:100%;justify-content:center;margin-top:8px"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V10"/><path d="M12 19V4"/><path d="M20 19v-7"/></svg> Exporter tous les membres (1 fichier)</button>
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
         <div class="j-title">Nouveau membre</div>
@@ -709,6 +714,10 @@ function getCommercial(){
   const m=S.membres.find(x=>x.id===S.membreActifId);
   return m?m.nom:"";
 }
+function estManager(){
+  const m=S.membres.find(x=>x.id===S.membreActifId);
+  return m&&(m.role==="manager"||m.role==="administrateur");
+}
 function updateCommercialPill(){
   const el=document.getElementById("commercialName"); if(!el) return;
   el.textContent=getCommercial()||"Membres";
@@ -732,6 +741,7 @@ function selectionnerProfilInitial(id){
   updateCommercialPill();
   document.getElementById("profilScreen").classList.remove("show");
   document.getElementById("welcomeScreen").classList.add("show");
+  document.body.classList.remove("mode-invite");
   render(); refreshActiveView();
   toast(`Bienvenue, ${getCommercial()}`);
 }
@@ -742,12 +752,17 @@ function continuerEnInvite(){
   updateCommercialPill();
   document.getElementById("profilScreen").classList.remove("show");
   document.getElementById("welcomeScreen").classList.add("show");
+  document.body.classList.add("mode-invite");
   render(); refreshActiveView();
   toast("Mode invité — lecture seule");
 }
 window.continuerEnInvite=continuerEnInvite;
   
-function ouvrirGestionMembres(){ renderMembresListe(); document.getElementById("moCommercial").classList.add("open"); }
+function ouvrirGestionMembres(){
+  renderMembresListe();
+  renderActiviteRecente();
+  document.getElementById("moCommercial").classList.add("open");
+ }
 window.ouvrirGestionMembres=ouvrirGestionMembres;
 function fermerGestionMembres(){ document.getElementById("moCommercial").classList.remove("open"); }
 window.fermerGestionMembres=fermerGestionMembres;
@@ -786,6 +801,7 @@ function renderMembresListe(){
 
 function selectionnerMembre(id){
   S.membreActifId=id; S.modeInvite=false; setMembreActifIdStockage(id);
+  document.body.classList.remove("mode-invite");
   updateCommercialPill(); renderMembresListe(); render(); refreshActiveView();
   if(S.panelMode) renderPanel();
   toast(`Membre actif : ${getCommercial()}`);
@@ -793,6 +809,7 @@ function selectionnerMembre(id){
 window.selectionnerMembre=selectionnerMembre;
 
 function ajouterMembre(){
+  if(!estManager()){ toast("Réservé aux managers/administrateurs."); return; }
   const inp=document.getElementById("nouveauMembreNom");
   const nom=inp.value.trim(); if(!nom) return;
   const equipeId=document.getElementById("nouveauMembreEquipe").value;
@@ -811,6 +828,7 @@ function renommerMembre(id){
 window.renommerMembre=renommerMembre;
 
 function supprimerMembre(id){
+  if(!estManager()){ toast("Réservé aux managers/administrateurs."); return; }
   if(S.membres.length<=1){ toast("Impossible de supprimer le dernier membre."); return; }
   const m=S.membres.find(x=>x.id===id); if(!m) return;
   if(!confirm(`Supprimer "${m.nom}" du roster ? (Les statuts déjà saisis restent, marqués à son nom.)`)) return;
@@ -821,6 +839,7 @@ function supprimerMembre(id){
 window.supprimerMembre=supprimerMembre;
 
 function viderCacheMembre(id){
+  if(!estManager()){ toast("Réservé aux managers/administrateurs."); return; }
   const m=S.membres.find(x=>x.id===id); if(!m) return;
   if(!confirm(`⚠️ Effacer tous les statuts saisis par "${m.nom}" ?\n\nCette action affecte immédiatement tout le monde (données partagées) et est irréversible.`)) return;
   const batch=db.batch();
@@ -830,6 +849,7 @@ function viderCacheMembre(id){
 window.viderCacheMembre=viderCacheMembre;
 
 function viderToutLeCache(){
+  if(!estManager()){ toast("Réservé aux managers/administrateurs."); return; }
   if(!confirm(`⚠️ ATTENTION — Vider TOUS les statuts, pour tout le monde ?\n\nCette action est IRRÉVERSIBLE et affecte immédiatement tous les appareils connectés.`)) return;
   if(!confirm(`Dernière confirmation : aucun moyen de récupérer ces données ensuite.`)) return;
   const batch=db.batch();
@@ -839,6 +859,7 @@ function viderToutLeCache(){
 window.viderToutLeCache=viderToutLeCache;
 
 function ajouterEquipe(){
+  if(!estManager()){ toast("Réservé aux managers/administrateurs."); return; }
   const inp=document.getElementById("nouvelleEquipeNom");
   const nom=inp.value.trim(); if(!nom) return;
   const id="e"+Date.now();
@@ -901,6 +922,7 @@ function renommerEquipe(id){
 window.renommerEquipe=renommerEquipe;
 
 function supprimerEquipe(id){
+  if(!estManager()){ toast("Réservé aux managers/administrateurs."); return; }
   const eq=S.equipes.find(x=>x.id===id); if(!eq) return;
   if(!confirm(`Supprimer l'équipe "${eq.nom}" ? Les membres ne seront pas supprimés, juste détachés.`)) return;
   const batch=db.batch();
@@ -912,6 +934,7 @@ window.supprimerEquipe=supprimerEquipe;
 
 // Import Excel : une feuille par équipe (nom de la feuille = nom de l'équipe), colonnes Nom / Role.
 async function importerEquipesExcel(file){
+  if(!estManager()){ toast("Réservé aux managers/administrateurs."); return; }
   if(!file) return;
   try{
     const buf=await file.arrayBuffer();
@@ -994,6 +1017,11 @@ function setStatut(siret,val,registerUndo=true){
   const e=getEntry(siret);
   const prevStatut=e.statut||"", prevDate=e.date||"";
   e.statut=val; e.date=new Date().toISOString(); e.commercial=getCommercial()||e.commercial||"";
+  if(prevStatut!==val){
+    if(!e.historique) e.historique=[];
+    e.historique.unshift({statut:val,date:e.date,commercial:e.commercial});
+    if(e.historique.length>20) e.historique=e.historique.slice(0,20);
+  }
   saveEntry(siret,e); render();
   if(registerUndo&&prevStatut!==val) enregistrerUndo(siret,prevStatut,prevDate);
 }
@@ -1118,6 +1146,7 @@ function ecouterSuiviPartage(){
       if(change.type==="removed") delete S._suiviCache[siret];
       else S._suiviCache[siret]=change.doc.data();
     });
+    renderActiviteRecente();
     render();
     refreshActiveView();
     if(S.panelMode) renderPanel();
@@ -1147,17 +1176,7 @@ document.addEventListener("DOMContentLoaded", async function(){
   ecouterEquipesEtMembres();
   ecouterSuiviPartage();
   if(nbRestaure) toast(`Sauvegarde de secours restaurée (${nbRestaure} élément${nbRestaure>1?"s":""}) — le localStorage avait été vidé.`);
-  // Si un autre onglet du même navigateur modifie le suivi/les membres, on resynchronise
-  // l'affichage et on prévient — sinon deux onglets ouverts peuvent s'écraser silencieusement.
-  window.addEventListener("storage",function(ev){
-    if(!ev.key) return;
-    if(ev.key.indexOf(LS_SUIVI)!==0&&ev.key!==LS_MEMBRES&&ev.key!==LS_EQUIPES) return;
-    S.membres=loadMembres(); S.equipes=loadEquipes();
-    if(!S.membres.some(m=>m.id===S.membreActifId)&&S.membres.length) S.membreActifId=S.membres[0].id;
-    updateCommercialPill();
-    if(S.map&&S.rows.length){ render(); refreshActiveView(); if(S.panelMode) renderPanel(); }
-    toast("⚠ Données modifiées dans un autre onglet — affichage resynchronisé.");
-  });
+
   updateCpToggleBtn();
   loadCommunes().then(function(){
     return tryAutoLoad();
@@ -2445,19 +2464,30 @@ window.cpSetStatut=cpSetStatut;
 // ════════════════════════════════════════════════════════════════
 // MODAL ENTREPRISE
 // ════════════════════════════════════════════════════════════════
-// Vérifie si d'autres membres (que celui actuellement actif) ont déjà un statut renseigné sur cette
-// entreprise — pour éviter que deux commerciaux se marchent dessus sans le savoir.
-function autresMembresTouches(siret){
-  const resultats=[];
-  S.membres.forEach(m=>{
-    if(m.id===S.membreActifId) return;
-    const s=chargerSuiviMembre(m.id);
-    const e=s[siret];
-    if(e&&e.statut&&e.statut!==""){
-      resultats.push({id:m.id,nom:m.nom,statutLabel:(ST[e.statut]||ST[""]).label.replace("●","").trim()});
-    }
+
+// Calcule les N dernières actions de toute l'équipe, à partir de l'historique de chaque entreprise —
+// alimente le fil d'activité en direct dans le modal de gestion des membres.
+function getActiviteRecente(limite=15){
+  const items=[];
+  Object.entries(S._suiviCache||{}).forEach(([siret,e])=>{
+    (e.historique||[]).forEach(h=>items.push({siret,...h}));
   });
-  return resultats;
+  items.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  return items.slice(0,limite);
+}
+function renderActiviteRecente(){
+  const box=document.getElementById("activiteRecenteBox"); if(!box) return;
+  const items=getActiviteRecente();
+  box.innerHTML=items.map(it=>{
+    const full=findFull(it.siret);
+    const st=ST[it.statut]||ST[""];
+    const diffMin=Math.round((Date.now()-new Date(it.date).getTime())/60000);
+    const quand=diffMin<1?"à l'instant":diffMin<60?`il y a ${diffMin} min`:diffMin<1440?`il y a ${Math.round(diffMin/60)} h`:new Date(it.date).toLocaleDateString("fr-FR");
+    return `<div style="padding:5px 0;border-bottom:1px solid var(--line);font-size:11px">
+      <b>${esc(it.commercial||"—")}</b> → <span style="color:${st.color}">${st.label.replace("●","").trim()}</span> sur <span style="cursor:pointer;color:var(--ac-d)" onclick="fermerGestionMembres();ouvrirModal('${it.siret}')">${esc((full?.Nom||"—").substring(0,28))}</span>
+      <span style="color:var(--ink-s);float:right">${quand}</span>
+    </div>`;
+  }).join("")||"<div style='padding:8px;font-size:11px;color:var(--ink-s)'>Aucune activité récente.</div>";
 }
 
 async function ouvrirModal(siret){
@@ -2472,11 +2502,20 @@ document.getElementById("moSub").innerHTML=
     `<span style="color:var(--ac-d);font-size:11px">${esc(row.Code_NAF||"")}</span> ${esc(row.Activite||NAF_LABELS[row.Code_NAF]||"")}<br>`+
     `<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-7.5-7-12a7 7 0 0 1 14 0c0 4.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg> ${esc([row.Adresse,communeNom].filter(Boolean).join(", "))}`+
     (row.Dirigeant_Nom?`<br><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg> ${esc(row.Dirigeant_Nom)}${row.Dirigeant_Role?" — "+esc(row.Dirigeant_Role):""}`:"");
-  const e=getEntry(siret);
-  const autres=autresMembresTouches(siret);
-  const banniereDoublon=autres.length?`<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:var(--r);padding:8px 10px;margin-bottom:11px;font-size:11.5px;color:#9a3412"><b>⚠ Déjà touchée par ${autres.length>1?"plusieurs membres":"un autre membre"} :</b><br>${autres.map(a=>`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${couleurMembre(a.id)};margin-right:4px"></span>${esc(a.nom)} — ${esc(a.statutLabel)}`).join("<br>")}</div>`:"";
+    const e=getEntry(siret);
+  const historique=(e.historique||[]);
+  const blocHistorique=historique.length?`<div style="margin-bottom:11px">
+    <div class="j-title" style="margin-bottom:5px">Historique</div>
+    <div style="font-size:11px;max-height:110px;overflow-y:auto">
+      ${historique.map(h=>{
+        const st=ST[h.statut]||ST[""];
+        const quand=new Date(h.date).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+        return `<div style="padding:3px 0;border-bottom:1px solid var(--line)"><b>${esc(h.commercial||"—")}</b> → <span style="color:${st.color}">${st.label.replace("●","").trim()}</span> <span style="color:var(--ink-s);float:right">${quand}</span></div>`;
+      }).join("")}
+    </div>
+  </div>`:"";
   document.getElementById("moBody").innerHTML=`
-    ${banniereDoublon}
+    ${blocHistorique}
     <div style="margin-bottom:11px">
       <div class="j-title" style="margin-bottom:6px">Statut</div>
       <div class="st-btns" id="moStBtns">
