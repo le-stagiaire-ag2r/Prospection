@@ -517,12 +517,18 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
     <div class="mo-body">
            <div id="membresListe"></div>
       <input type="file" id="importCacheMembreInput" accept=".json" style="display:none" onchange="importerCacheMembre(this.dataset.membreId,this.files[0])">
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
-        <div class="j-title">Activité récente de l'équipe</div>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+          <div class="j-title" style="margin-bottom:0;flex:1">Activité récente</div>
+          <select id="activiteFiltre" onchange="renderActiviteRecente()" style="padding:4px 6px;border:1px solid var(--line);border-radius:var(--r);font-size:10.5px;font-family:var(--sans)">
+            <option value="">Toute l'équipe</option>
+          </select>
+        </div>
         <div id="activiteRecenteBox" style="max-height:200px;overflow-y:auto"></div>
       </div>
-      <button class="btn btn-v" onclick="exporterRapportEquipe()" style="width:100%;justify-content:center;margin-top:8px"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V10"/><path d="M12 19V4"/><path d="M20 19v-7"/></svg> Exporter tous les membres (1 fichier)</button>
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+      <button class="btn btn-v" onclick="exporterRapportEquipe()" style="width:100%;justify-content:center;margin-top:8px">
+      <button class="btn btn-v" onclick="exporterRapportEquipe()" style="width:100%;justify-content:center;margin-top:8px">...</button>  
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
         <div class="j-title">Nouveau membre</div>
         <div style="display:flex;gap:6px;margin-bottom:6px">
           <input type="text" id="nouveauMembreNom" placeholder="Prénom" style="flex:1;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r);font-size:12.5px;font-family:var(--sans)" onkeydown="if(event.key==='Enter')ajouterMembre()">
@@ -739,6 +745,7 @@ function selectionnerProfilInitial(id){
   S.membreActifId=id; S.modeInvite=false;
   setMembreActifIdStockage(id);
   updateCommercialPill();
+  updateRappelsBadge();
   document.getElementById("profilScreen").classList.remove("show");
   document.getElementById("welcomeScreen").classList.add("show");
   document.body.classList.remove("mode-invite");
@@ -802,6 +809,7 @@ function renderMembresListe(){
 function selectionnerMembre(id){
   S.membreActifId=id; S.modeInvite=false; setMembreActifIdStockage(id);
   document.body.classList.remove("mode-invite");
+  updateRappelsBadge();
   updateCommercialPill(); renderMembresListe(); render(); refreshActiveView();
   if(S.panelMode) renderPanel();
   toast(`Membre actif : ${getCommercial()}`);
@@ -2467,17 +2475,36 @@ window.cpSetStatut=cpSetStatut;
 
 // Calcule les N dernières actions de toute l'équipe, à partir de l'historique de chaque entreprise —
 // alimente le fil d'activité en direct dans le modal de gestion des membres.
-function getActiviteRecente(limite=15){
+function getActiviteRecente(limite=15,filtre=""){
   const items=[];
   Object.entries(S._suiviCache||{}).forEach(([siret,e])=>{
     (e.historique||[]).forEach(h=>items.push({siret,...h}));
   });
-  items.sort((a,b)=>new Date(b.date)-new Date(a.date));
-  return items.slice(0,limite);
+  let out=items;
+  if(filtre.startsWith("membre:")){
+    const nom=filtre.slice(7);
+    out=out.filter(it=>it.commercial===nom);
+  } else if(filtre.startsWith("equipe:")){
+    const eqId=filtre.slice(7);
+    const nomsEquipe=new Set(S.membres.filter(m=>(m.equipeId||"")===eqId).map(m=>m.nom));
+    out=out.filter(it=>nomsEquipe.has(it.commercial));
+  }
+  out.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  return out.slice(0,limite);
+}
+function peuplerFiltreActivite(){
+  const sel=document.getElementById("activiteFiltre"); if(!sel) return;
+  const valActuelle=sel.value;
+  const optsMembres=S.membres.map(m=>`<option value="membre:${esc(m.nom)}">${esc(m.nom)}</option>`).join("");
+  const optsEquipes=S.equipes.map(eq=>`<option value="equipe:${eq.id}">Équipe : ${esc(eq.nom)}</option>`).join("");
+  sel.innerHTML=`<option value="">Toute l'équipe</option>${optsEquipes}${optsMembres}`;
+  sel.value=valActuelle;
 }
 function renderActiviteRecente(){
   const box=document.getElementById("activiteRecenteBox"); if(!box) return;
-  const items=getActiviteRecente();
+  peuplerFiltreActivite();
+  const filtre=document.getElementById("activiteFiltre")?.value||"";
+  const items=getActiviteRecente(15,filtre);
   box.innerHTML=items.map(it=>{
     const full=findFull(it.siret);
     const st=ST[it.statut]||ST[""];
@@ -2584,8 +2611,9 @@ window.setRappel=setRappel;
 function updateRappelsBadge(){
   const today=new Date().toISOString().slice(0,10);
   const suivi=loadSuivi();
+  const moi=getCommercial();
   let n=0;
-  Object.values(suivi).forEach(e=>{ if(e.rappel&&e.rappel<=today) n++; });
+  Object.values(suivi).forEach(e=>{ if(e.rappel&&e.rappel<=today&&e.commercial===moi) n++; });
   const badge=document.getElementById("rappelsBadge");
   if(!badge) return;
   if(n>0){ badge.textContent=n>99?"99+":n; badge.style.display="inline-block"; }
@@ -3300,6 +3328,36 @@ function optionsVueStats(){
   </select>`;
 }
 
+// Compte le nombre de changements de statut par jour, sur les 7 derniers jours, à partir de
+// l'historique — donne une tendance visuelle simple de l'activité de l'équipe.
+function getEvolutionActivite(){
+  const jours=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    jours.push(d.toISOString().slice(0,10));
+  }
+  const counts={}; jours.forEach(j=>counts[j]=0);
+  Object.values(S._suiviCache||{}).forEach(e=>{
+    (e.historique||[]).forEach(h=>{
+      const jour=h.date.slice(0,10);
+      if(counts[jour]!==undefined) counts[jour]++;
+    });
+  });
+  const max=Math.max(1,...Object.values(counts));
+  return `<div style="display:flex;align-items:flex-end;gap:6px;height:90px;padding-top:10px">
+    ${jours.map(j=>{
+      const n=counts[j];
+      const h=Math.round(n/max*70);
+      const label=new Date(j).toLocaleDateString("fr-FR",{weekday:"short"});
+      return `<div style="flex:1;text-align:center">
+        <div style="font-size:10px;color:var(--ink-s);margin-bottom:2px">${n}</div>
+        <div style="background:var(--ac);height:${Math.max(h,2)}px;border-radius:3px 3px 0 0"></div>
+        <div style="font-size:9.5px;color:var(--ink-s);margin-top:3px;text-transform:capitalize">${label}</div>
+      </div>`;
+    }).join("")}
+  </div>`;
+}
+  
 function updateStats(){
   const suivi=chargerSuiviPourVue(S.statsVue); const fSirets=getFiltresSirets();
   const hasFiltres=S.selNAF.size>0||!!S.rayC||!!S.tour||S.communesSelect.size>0||S.effectifSelect.size>0;
@@ -3318,7 +3376,8 @@ function updateStats(){
       </div>
       <div class="db"><div class="db-t">Top communes contactées</div>${getTopCommunes(suiviF)}</div>
       <div class="db"><div class="db-t">Top secteurs NAF</div>${getTopNAF(suiviF)}</div>
-      <div class="db"><div class="db-t">Journal — volume par type</div>${getJournalStats(suiviF)}</div>
+           <div class="db"><div class="db-t">Journal — volume par type</div>${getJournalStats(suiviF)}</div>
+      <div class="db" style="grid-column:1/-1"><div class="db-t">Évolution de l'activité (7 derniers jours)</div>${getEvolutionActivite()}</div>
     </div>
     ${S.membres.length>1?`<div class="db" style="margin-top:14px"><div class="db-t">Comparatif des membres</div>${getComparatifMembres()}</div>`:""}`;
 }
@@ -3475,6 +3534,33 @@ function exporterRapportEquipe(){
   toast(`${rows.length} lignes exportées (${S.membres.length} membres).`);
 }
 window.exporterRapportEquipe=exporterRapportEquipe;
+
+  // Export "journal" : une ligne par changement de statut (pas par entreprise) — la trace
+// chronologique complète de l'activité de toute l'équipe, à partir de l'historique conservé
+// sur chaque entreprise (20 dernières actions par entreprise).
+function exporterHistoriqueComplet(){
+  const rows=[];
+  Object.entries(S._suiviCache||{}).forEach(([siret,e])=>{
+    (e.historique||[]).forEach(h=>{
+      const full=findFull(siret);
+      const st=ST[h.statut]||ST[""];
+      rows.push({
+        Date:new Date(h.date).toLocaleString("fr-FR"),
+        Membre:h.commercial||"—",
+        Entreprise:full?.Nom||"—",
+        Commune:full?.Commune||"—",
+        Statut:st.label.replace("●","").trim(),
+      });
+    });
+  });
+  if(!rows.length){ alert("Aucun historique enregistré pour l'instant."); return; }
+  rows.sort((a,b)=>new Date(b.Date.split(" ")[0].split("/").reverse().join("-")+" "+b.Date.split(" ")[1])-new Date(a.Date.split(" ")[0].split("/").reverse().join("-")+" "+a.Date.split(" ")[1]));
+  const ws=XLSX.utils.json_to_sheet(rows); const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"Historique");
+  XLSX.writeFile(wb,`historique_complet_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`${rows.length} actions exportées.`);
+}
+window.exporterHistoriqueComplet=exporterHistoriqueComplet;
 
 // ════════════════════════════════════════════════════════════════
 // RECHERCHE GLOBALE
