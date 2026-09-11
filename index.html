@@ -740,15 +740,15 @@ const GUIDE_STEPS=[
 
   {selector:null, titre:"⚠ Cette donnée n'est pas chargée par défaut", texte:"Le fichier source complet est trop lourd pour tout charger d'un coup. Pour voir la taille des entreprises, il faut d'abord aller en haut et cliquer sur \"Enrichir\", puis donner le fichier Excel complet.", position:"center"},
 
-  {selector:"#btnEnrichir", titre:"Clique sur Enrichir", texte:"Ce bouton, en haut de l'écran.", position:"bottom",
+    {selector:"#btnEnrichir", titre:"Clique sur Enrichir", texte:"Ce bouton, en haut de l'écran.", position:"bottom",
     action:{type:"click"}},
-  
-  {selector:"[onclick*=\"toggleRayonBlock('rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
-    action:{type:"click"}},
-  
+
+  {selector:"#enrichirFileInput", titre:"Choisis le fichier Excel", texte:"Une fenêtre de sélection de fichier s'est ouverte (ou va s'ouvrir) — choisis le fichier Excel complet qu'on t'a donné.", position:"center", permitHidden:true,
+    action:{type:"input", notEmpty:true}},
+
   {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier. Un écran de chargement plein écran va s'afficher pendant l'opération. Une fois qu'il a disparu, clique sur Suivant pour continuer.", position:"center"},
-  
-     {selector:"[onclick*=\"toggleRayonBlock('rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
+
+  {selector:"[onclick*=\"toggleRayonBlock('rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
     action:{type:"click"}},
 
   {selector:"#rayVille", titre:"Choisis une commune", texte:"Sélectionne n'importe quelle commune dans ce menu.", position:"right",
