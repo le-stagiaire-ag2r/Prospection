@@ -269,12 +269,12 @@ body.guide-actif{overflow:hidden;}
 </head>
 <body>
 
-  <div id="topLoadBar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:7500;background:#0f2438;color:#fff;padding:5px 14px;font-size:11px;display:flex;align-items:center;gap:10px">
-  <span id="topLoadBarTexte">Chargement...</span>
-  <div style="flex:1;height:5px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden">
+  <div id="topLoadBar" style="display:none;align-items:center;gap:6px;padding:4px 9px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:999px;font-size:10.5px;color:#5b21b6;flex-shrink:0">
+  <span id="topLoadBarTexte">Chargement</span>
+  <div style="width:60px;height:4px;background:#e2e2f5;border-radius:3px;overflow:hidden">
     <div id="topLoadBarFill" style="height:100%;width:0%;background:#7c3aed;transition:width .3s"></div>
   </div>
-  <span id="topLoadBarPct">0%</span>
+  <span id="topLoadBarPct" style="font-weight:700">0%</span>
 </div>
 
 <!-- Loading screen -->
@@ -321,6 +321,13 @@ body.guide-actif{overflow:hidden;}
     <button class="btn btn-o" id="btnExport" style="display:none" onclick="exporterSelection()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Exporter</button>
     <button class="btn btn-v" onclick="exporterRapport()"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V10"/><path d="M12 19V4"/><path d="M20 19v-7"/></svg> Rapport</button>
     <button class="btn btn-g" id="btnEnrichir" style="display:none" onclick="document.getElementById('enrichirFileInput').click()" title="Compléter les exports avec toutes les colonnes du fichier Excel maître (SIREN, TVA, Zone...)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Enrichir</button>
+  </div>
+  <div id="topLoadBar" style="display:none;align-items:center;gap:6px;padding:4px 9px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:999px;font-size:10.5px;color:#5b21b6;flex-shrink:0">
+    <span id="topLoadBarTexte">Chargement</span>
+    <div style="width:60px;height:4px;background:#e2e2f5;border-radius:3px;overflow:hidden">
+      <div id="topLoadBarFill" style="height:100%;width:0%;background:#7c3aed;transition:width .3s"></div>
+    </div>
+    <span id="topLoadBarPct" style="font-weight:700">0%</span>
   </div>
   <div class="pill">
     <b id="stTotal">—</b> ent. &nbsp;·&nbsp;
@@ -701,26 +708,40 @@ const GUIDE_STEPS=[
   {selector:"#selectAllNaf", titre:"On redécoche", texte:"Reclique sur la même case pour tout décocher, on va se concentrer sur un seul secteur pour la suite.", position:"right",
     action:{type:"click"}},
 
-  {selector:".sec-check", titre:"Sélectionner une famille entière", texte:"Cette case coche d'un coup tous les sous-codes d'une grande famille (ex : toute la Construction). Clique dessus.", position:"right",
+   {selector:".sec-check", titre:"Sélectionner une famille entière", texte:"Cette case coche d'un coup tous les sous-codes d'une grande famille (ex : toute la Construction). Clique dessus pour la COCHER (si elle est déjà cochée, clique une deuxième fois).", position:"right",
     avant:()=>{
       const sec=document.querySelector(".section-item");
       if(sec){ const list=sec.querySelector(".codes"); const head=sec.querySelector(".sec-h"); if(list&&head&&getComputedStyle(list).display==="none") head.click(); }
+      const chk=document.querySelector(".sec-check");
+      if(chk&&chk.checked) chk.click();
     },
-    action:{type:"click"}},
+    action:{type:"click", verifie:()=>{ const chk=document.querySelector(".sec-check"); return chk&&chk.checked; }}},
 
   {selector:".cr", titre:"Sélectionner un seul code", texte:"Clique directement sur un sous-code précis pour ne sélectionner que lui, pas toute la famille.", position:"right",
     avant:()=>{
       const sec=document.querySelector(".section-item");
       if(sec){ const list=sec.querySelector(".codes"); const head=sec.querySelector(".sec-h"); if(list&&head&&getComputedStyle(list).display==="none") head.click(); }
+      const row=document.querySelector(".cr");
+      if(row&&row.classList.contains("active")) row.click();
     },
-    action:{type:"click"}},
+    action:{type:"click", verifie:()=>{ const row=document.querySelector(".cr"); return row&&row.classList.contains("active"); }}},
 
   {selector:".nb", titre:"Les chiffres à côté des codes", texte:"Ce nombre indique combien d'entreprises de ce secteur sont dans la zone actuellement affichée. Il se recalcule automatiquement à chaque changement de filtre.", position:"left"},
 
   {selector:null, titre:"⚠ Pendant les calculs", texte:"De façon générale sur tout le site : quand une barre de progression ou un message de chargement s'affiche, évite d'enchaîner les clics sur d'autres filtres — laisse toujours le calcul en cours se terminer avant le suivant.", position:"center"},
 
-  {selector:"[onclick*=\"'effBody'\"]", titre:"Taille d'entreprise", texte:"Filtre par nombre de salariés. Clique dessus pour déplier ce bloc.", position:"right",
+    {selector:"[onclick*=\"'effBody'\"]", titre:"Taille d'entreprise", texte:"Filtre par nombre de salariés. Clique dessus pour déplier ce bloc.", position:"right",
     action:{type:"click"}},
+
+  {selector:null, titre:"⚠ Cette donnée n'est pas chargée par défaut", texte:"Le fichier source complet est trop lourd pour tout charger d'un coup. Pour voir la taille des entreprises, il faut d'abord aller en haut et cliquer sur \"Enrichir\", puis donner le fichier Excel complet.", position:"center"},
+
+  {selector:"#btnEnrichir", titre:"Clique sur Enrichir", texte:"Ce bouton, en haut de l'écran.", position:"bottom",
+    action:{type:"click"}},
+
+  {selector:"#enrichirFileInput", titre:"Choisis le fichier Excel", texte:"Sélectionne le fichier Excel complet qu'on t'a donné.", position:"bottom",
+    action:{type:"input", notEmpty:true}},
+
+  {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier — c'est normal, laisse-le travailler.", position:"center"},
 
   {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
     action:{type:"click"}},
@@ -761,9 +782,7 @@ const GUIDE_STEPS=[
 
   {selector:"#t-carte", titre:"Retour à la carte", texte:"Et on revient à la carte. Clique dessus pour terminer ce point.", position:"bottom", action:{type:"click"}},
 
-  {selector:"#btnExport", titre:"Exporter", texte:"Télécharge en Excel les entreprises filtrées. Réservé aux managers/administrateurs.", position:"bottom"},
-
-  {selector:"#btnEnrichir", titre:"Enrichir", texte:"Complète les données avec les colonnes manquantes à partir de ton Excel complet.", position:"bottom"},
+   {selector:"#btnExport", titre:"Exporter", texte:"Télécharge en Excel les entreprises filtrées. Réservé aux managers/administrateurs.", position:"bottom"},
 
   {selector:"[onclick*=\"exporterRapport()\"]", titre:"Rapport", texte:"Exporte un récapitulatif de ton suivi actuel. Réservé aux managers/administrateurs.", position:"bottom"},
 
@@ -831,12 +850,12 @@ function afficherEtapeGuideReelle(step){
     <div class="gt-title">${step.titre}</div>
     ${consigne}
     <div class="gt-texte">${step.texte}</div>
-    <div class="gt-nav">
+        <div class="gt-nav">
       <button class="btn btn-g" onclick="etapePrecedenteGuide()" style="${guideIndex===0?"visibility:hidden":""}">← Précédent</button>
       <div class="gt-dots">${window._guideStepsActifs.map((_,i)=>`<span class="gt-dot${i===guideIndex?" active":""}"></span>`).join("")}</div>
       <button class="btn btn-p" onclick="etapeSuivanteGuide()">${step.action?"Passer":guideIndex===window._guideStepsActifs.length-1?"Terminer":"Suivant →"}</button>
-    </div>`;
-
+    </div>
+    <div style="text-align:center;margin-top:9px"><a href="#" onclick="terminerGuideInteractif();return false;" style="font-size:10.5px;color:var(--ink-s);text-decoration:underline">Quitter le guide</a></div>`;
     if(el) el.scrollIntoView({block:"center",behavior:"auto"});
 
   setTimeout(()=>{
@@ -879,16 +898,18 @@ function afficherEtapeGuideReelle(step){
           cible.addEventListener("input",guideActionListener);
           cible.addEventListener("change",guideActionListener);
           guideActionEl=cible;
-        } else if(step.action.type==="click"){
-          guideActionListener=()=>setTimeout(etapeSuivanteGuide,150);
+                } else if(step.action.type==="click"){
+          const avancerSiOk=()=>{
+            if(!step.action.verifie||step.action.verifie()) setTimeout(etapeSuivanteGuide,150);
+            else toast("Ça n'a pas encore le bon effet — reclique pour cocher (pas décocher).");
+          };
           if(step.action.selector&&step.action.selector!==step.selector){
-            // Délégation : la cible réelle (ex: un résultat de recherche) n'existe peut-être pas
-            // encore au moment où on pose l'écouteur — on écoute sur un parent stable à la place.
             const parent=document.querySelector(step.selector)||document.body;
-            guideActionListener=(e)=>{ if(e.target.closest(step.action.selector)) setTimeout(etapeSuivanteGuide,150); };
-            parent.addEventListener("click",guideActionListener);
+            guideActionListener=(e)=>{ if(e.target.closest(step.action.selector)) setTimeout(avancerSiOk,150); };
+            parent.addEventListener("click",guideActionListener,true);
             guideActionEl=parent;
           } else {
+            guideActionListener=()=>setTimeout(avancerSiOk,150);
             cible.addEventListener("click",guideActionListener);
             guideActionEl=cible;
           }
