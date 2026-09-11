@@ -792,11 +792,31 @@ const GUIDE_STEPS=[
 
     {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond gris représente une commune — sa taille indique le nombre d'entreprises. Sans filtre actif (comme maintenant), ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts, et à partir d'un certain zoom, chaque rond individuel représente alors une entreprise précise, pas une commune.", position:"top"},
 
-   {selector:"#map", titre:"Cliquer sur une entreprise", texte:"Clique sur un rond gris pour voir apparaître un volet à droite avec toutes les entreprises de cette ville, sans filtre. Clique ensuite sur la première de la liste pour ouvrir sa fiche complète.", position:"top",
+     {selector:"#map", titre:"Cliquer sur un rond gris", texte:"Clique sur n'importe quel rond gris de la carte, pour voir apparaître un volet à droite avec toutes les entreprises de cette ville.", position:"top",
+    attendre:()=>{ const el=document.getElementById("cp"); return el&&el.offsetParent!==null; }},
+
+  {selector:"#cp", titre:"Le volet s'est ouvert", texte:"Toutes les entreprises de cette commune apparaissent ici, sans filtre. Clique sur la première de la liste pour ouvrir sa fiche complète.", position:"left",
     attendre:()=>{ const el=document.getElementById("mo"); return el&&el.offsetParent!==null; }},
 
-  {selector:"#mo", titre:"La fiche d'une entreprise", texte:"Tu vois son statut actuel et qui l'a mis. Tu peux le changer, ajouter une note, ou poser un rappel — visible en temps réel par toute l'équipe.", position:"left"},
+    {selector:"[onclick*=\"signalerEntreprise\"]", titre:"Signaler fermée / déménagée", texte:"Si tu constates sur place qu'une entreprise a fermé ou déménagé, ce bouton la signale au manager pour qu'elle soit nettoyée du fichier — pas besoin de cliquer maintenant, juste pour savoir que ça existe.", position:"left"},
 
+  {selector:"#moTelTerrain", titre:"Téléphone trouvé sur place", texte:"Si tu trouves un numéro sur place qui n'est pas dans le fichier, note-le ici — tape n'importe quel numéro pour essayer.", position:"left",
+    action:{type:"input", notEmpty:true}},
+
+  {selector:"[onclick*=\"enregistrerTelephoneTerrain\"]", titre:"Valide le numéro", texte:"Clique sur OK pour l'enregistrer — visible instantanément par toute l'équipe aussi.", position:"left",
+    action:{type:"click"}},
+
+  {selector:"#moStBtns", titre:"Le statut", texte:"Clique sur un statut pour l'attribuer à cette entreprise — visible en temps réel par toute l'équipe, avec ton nom et l'heure.", position:"left",
+    action:{type:"click", selector:"#moStBtns button"}},
+
+  {selector:"#moRap", titre:"Poser un rappel", texte:"Choisis une date ici pour te rappeler de recontacter cette entreprise — elle apparaîtra dans ton badge de rappels du jour venu.", position:"left"},
+
+  {selector:"#jTxt", titre:"Le journal", texte:"Note ce qui s'est passé lors de ce contact — tape n'importe quoi pour essayer, par exemple « Pas disponible ».", position:"left",
+    action:{type:"input", notEmpty:true}},
+
+  {selector:"[onclick*=\"addJ(\"]", titre:"Ajoute l'entrée", texte:"Clique sur le + pour l'enregistrer dans l'historique de cette entreprise.", position:"left",
+    action:{type:"click"}},
+  
   {selector:"#t-liste", titre:"Onglet Liste", texte:"Toutes les entreprises filtrées en tableau. Clique dessus.", position:"bottom", action:{type:"click"}},
 
   {selector:"#t-stats", titre:"Onglet Stats", texte:"Tes statistiques : contacts, RDV, taux de conversion par secteur, comparatif d'équipe. Clique dessus.", position:"bottom", action:{type:"click"}},
