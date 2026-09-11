@@ -737,7 +737,7 @@ const GUIDE_STEPS=[
   {selector:"#btnEnrichir", titre:"Clique sur Enrichir", texte:"Ce bouton, en haut de l'écran.", position:"bottom",
     action:{type:"click"}},
 
-  {selector:"#enrichirFileInput", titre:"Choisis le fichier Excel", texte:"Sélectionne le fichier Excel complet qu'on t'a donné.", position:"bottom",
+    {selector:"#enrichirFileInput", titre:"Choisis le fichier Excel", texte:"Une fenêtre de sélection de fichier s'est ouverte (ou va s'ouvrir) — choisis le fichier Excel complet qu'on t'a donné.", position:"center", permitHidden:true,
     action:{type:"input", notEmpty:true}},
 
     {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier — c'est normal, laisse-le travailler. Ça avancera tout seul dès que c'est prêt.", position:"center",
@@ -811,7 +811,7 @@ function afficherEtapeGuide(){
 
   if(step.selector){
     const el=document.querySelector(step.selector);
-    if(!el||el.offsetParent===null){
+    if(!el||(el.offsetParent===null&&!step.permitHidden)){
       highlight.style.display="none";
       tooltip.style.transform="translate(-50%,-50%)";
       tooltip.style.top="50%"; tooltip.style.left="50%";
