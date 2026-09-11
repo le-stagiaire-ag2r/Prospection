@@ -740,8 +740,7 @@ const GUIDE_STEPS=[
     {selector:"#enrichirFileInput", titre:"Choisis le fichier Excel", texte:"Une fenêtre de sélection de fichier s'est ouverte (ou va s'ouvrir) — choisis le fichier Excel complet qu'on t'a donné.", position:"center", permitHidden:true,
     action:{type:"input", notEmpty:true}},
 
-    {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier — c'est normal, laisse-le travailler. Ça avancera tout seul dès que c'est prêt.", position:"center",
-    attendre:()=>{ return !!(S.full&&S.full.some(r=>r.Effectif_tranche_libelle&&r.Effectif_tranche_libelle!=="Non renseigné / sans salarié")); }},
+   {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier. Une fois que le fichier a bien été chargé (tu ne vois plus de barre de progression en haut), clique sur Suivant pour continuer.", position:"center"},
 
   {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
     action:{type:"click"}},
