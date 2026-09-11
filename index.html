@@ -757,7 +757,10 @@ const GUIDE_STEPS=[
   {selector:"[onclick=\"appliquerRayon()\"]", titre:"Valide le rayon", texte:"Clique sur OK pour appliquer.", position:"right",
     action:{type:"click"}},
 
-  {selector:null, titre:"Patiente pendant le calcul", texte:"Le rayon se dessine sur la carte et les entreprises se recalculent — laisse quelques secondes si besoin avant d'enchaîner.", position:"center"},
+   {selector:null, titre:"Patiente pendant le calcul", texte:"Le rayon se dessine sur la carte et les entreprises se recalculent — laisse quelques secondes si besoin avant d'enchaîner.", position:"center"},
+
+  {selector:null, titre:"On efface le rayon", texte:"On retire ce filtre avant de passer à l'outil suivant, pour repartir propre.", position:"center",
+    avant:()=>{ if(S.rayC) effacerRayon(); }},
 
   {selector:"[onclick*=\"'cmBody'\"]", titre:"Communes spécifiques", texte:"Ici, tu coches exactement les communes que tu veux couvrir, une par une — pratique pour combiner plusieurs villes précisément, sans passer par un rayon approximatif. Clique dessus pour déplier.", position:"right",
     action:{type:"click"}},
@@ -765,13 +768,16 @@ const GUIDE_STEPS=[
     {selector:"#communesListBox", titre:"Coche une commune", texte:"Clique sur n'importe quelle commune de la liste pour la sélectionner.", position:"right",
     action:{type:"click", selector:".cmr"}},
 
-  {selector:"#map", titre:"Regarde, la voilà sur la carte", texte:"C'est exactement la commune que tu viens de choisir. Si un secteur d'activité est actif, ses entreprises s'affichent précisément ici, sur ce territoire.", position:"top",
+    {selector:"#map", titre:"Regarde, la voilà sur la carte", texte:"C'est exactement la commune que tu viens de choisir. Si un secteur d'activité est actif, ses entreprises s'affichent précisément ici, sur ce territoire.", position:"top",
     avant:()=>{
       const code=[...S.communesSelect][0];
       const c=code&&S.communes[code];
       if(c&&S.map) S.map.setView([c.lat,c.lon],13);
     }},
-  
+
+  {selector:null, titre:"On efface les communes", texte:"On retire ce filtre avant de passer à l'outil suivant.", position:"center",
+    avant:()=>{ if(S.communesSelect.size) effacerCommunesSel(); }},
+
   {selector:"#tourAddr", titre:"Tournée terrain — le plus important", texte:"L'outil principal pour préparer un RDV. Tape une adresse, par exemple « 20 rue de Gand Lille ».", position:"right",
     action:{type:"input", contains:"gand"}},
 
@@ -780,11 +786,12 @@ const GUIDE_STEPS=[
 
   {selector:null, titre:"Patiente pendant la recherche", texte:"L'adresse se géocode et les entreprises autour se calculent — quelques secondes suffisent normalement.", position:"center"},
 
-  {selector:"#tourPrint", titre:"Imprimer / PDF", texte:"Depuis une tournée terrain, génère une fiche imprimable à faire remplir par ton client en RDV.", position:"bottom"},
+       {selector:"#tourPrint", titre:"Imprimer / PDF", texte:"Ce bouton génère une fiche prête à imprimer, listant toutes les entreprises de la tournée avec leur nom, adresse et activité — avec une case pour cocher si le client les connaît, et une zone pour noter ses remarques. Idéal à sortir directement en RDV pour enrichir la conversation avec le client.", position:"right"},
 
-  {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond représente une commune — sa taille indique le nombre d'entreprises. Sans filtre, ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts.", position:"top"},
+  {selector:null, titre:"On efface la tournée", texte:"On retire ce filtre pour repartir sur une carte neutre.", position:"center",
+    avant:()=>{ S.selNAF.clear(); updateChips(); updateActiveNAF(); if(S.tour) effacerTournee(); render(); }},
 
-  {selector:"#map", titre:"Cliquer sur un point individuel", texte:"Une fois un secteur sélectionné, chaque entreprise apparaît comme un point. Clique dessus pour ouvrir sa fiche complète.", position:"top"},
+  {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond gris représente une commune — sa taille indique le nombre d'entreprises. Sans filtre actif (comme maintenant), ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts, et à partir d'un certain zoom, chaque rond individuel représente alors une entreprise précise, pas une commune.", position:"top"},
 
   {selector:null, titre:"La fiche d'une entreprise", texte:"Tu vois son statut actuel et qui l'a mis. Tu peux le changer, ajouter une note, ou poser un rappel — visible en temps réel par toute l'équipe.", position:"center"},
 
@@ -893,9 +900,11 @@ function afficherEtapeGuideReelle(step){
       highlight.style.width=(r.width+12)+"px"; highlight.style.height=(r.height+12)+"px";
       const tw=tooltip.offsetWidth, th=tooltip.offsetHeight;
       let top,left; const pos=step.position||"bottom";
-           let posReelle=pos;
+                let posReelle=pos;
       if(pos==="right"&&r.right+18+tw>window.innerWidth) posReelle="left";
       else if(pos==="left"&&r.left-18-tw<0) posReelle="right";
+      else if(pos==="bottom"&&r.bottom+14+th>window.innerHeight) posReelle="top";
+      else if(pos==="top"&&r.top-14-th<0) posReelle="bottom";
       if(posReelle==="right"){ top=r.top+r.height/2-th/2; left=r.right+18; }
       else if(posReelle==="left"){ top=r.top+r.height/2-th/2; left=r.left-tw-18; }
       else if(posReelle==="top"){ top=r.top-th-14; left=r.left+r.width/2-tw/2; }
