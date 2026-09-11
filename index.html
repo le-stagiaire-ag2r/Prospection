@@ -241,7 +241,7 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
 .ps-comment-cell::after{content:"";display:block;margin-top:2px;height:34px;border:1.3px solid #999;border-radius:4px;background:repeating-linear-gradient(to bottom, transparent, transparent 12px, #ddd 12px, #ddd 13px);}
 .ps-check{width:16px;height:16px;border:1.5px solid #888;border-radius:3px;display:inline-block;}
 .ps-foot{margin-top:16px;font-size:10px;color:#888;}
-#guideOverlay{display:none;position:fixed;inset:0;z-index:8000;pointer-events:none;}
+#guideOverlay{display:none;position:fixed;inset:0;z-index:8003;pointer-events:none;}
 #guideOverlay.show{display:block;}
 #guideHighlight{position:fixed;display:none;border-radius:8px;box-shadow:0 0 0 9999px rgba(15,36,56,.8);transition:all .3s ease;pointer-events:none;z-index:8001;border:2px solid #fff;}
 #guideTooltip{position:fixed;z-index:8002;background:#fff;border-radius:12px;box-shadow:0 14px 50px rgba(0,0,0,.35);padding:16px 18px;width:300px;transition:top .3s ease,left .3s ease;pointer-events:auto;}
@@ -702,8 +702,7 @@ const GUIDE_STEPS=[
   {selector:"#selectAllNaf", titre:"Tout sélectionner", texte:"Cette case coche TOUS les secteurs d'un coup — utile en tournée terrain. ⚠ Attention : ça déclenche un calcul sur tout le fichier, ça peut prendre plusieurs secondes. Clique dessus pour essayer.", position:"right",
     action:{type:"click"}},
 
-  {selector:null, titre:"Patiente pendant le calcul", texte:"Tant que tu vois une barre de progression ou que les chiffres à côté des secteurs ne sont pas stabilisés, évite de cliquer sur d'autres filtres en même temps — laisse le calcul se terminer d'abord.", position:"center"},
-
+  {selector:null, titre:"Une remarque pour plus tard", texte:"Cocher \"Tout sélectionner\" est instantané, aucun calcul à attendre ici. Par contre, quand tu utiliseras une Tournée terrain ou un Rayon avec beaucoup d'entreprises non géocodées, une barre de progression apparaîtra en haut de l'écran — dans ce cas-là seulement, attends qu'elle se termine avant d'enchaîner sur un autre filtre.", position:"center"},
   {selector:"#selectAllNaf", titre:"On redécoche", texte:"Reclique sur la même case pour tout décocher, on va se concentrer sur un seul secteur pour la suite.", position:"right",
     action:{type:"click"}},
 
@@ -793,8 +792,8 @@ const GUIDE_STEPS=[
 
     {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond gris représente une commune — sa taille indique le nombre d'entreprises. Sans filtre actif (comme maintenant), ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts, et à partir d'un certain zoom, chaque rond individuel représente alors une entreprise précise, pas une commune.", position:"top"},
 
-  {selector:"#map", titre:"Cliquer sur une entreprise", texte:"Clique sur un rond gris pour voir apparaître un volet à droite avec toutes les entreprises de cette ville, sans filtre. Clique ensuite sur la première de la liste pour ouvrir sa fiche complète.", position:"top",
-    attendre:()=>document.getElementById("mo")&&document.getElementById("mo").classList.contains("open")},
+   {selector:"#map", titre:"Cliquer sur une entreprise", texte:"Clique sur un rond gris pour voir apparaître un volet à droite avec toutes les entreprises de cette ville, sans filtre. Clique ensuite sur la première de la liste pour ouvrir sa fiche complète.", position:"top",
+    attendre:()=>{ const el=document.getElementById("mo"); return el&&el.offsetParent!==null; }},
 
   {selector:"#mo", titre:"La fiche d'une entreprise", texte:"Tu vois son statut actuel et qui l'a mis. Tu peux le changer, ajouter une note, ou poser un rappel — visible en temps réel par toute l'équipe.", position:"left"},
 
