@@ -742,23 +742,24 @@ const GUIDE_STEPS=[
   
   {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier. Un écran de chargement plein écran va s'afficher pendant l'opération. Une fois qu'il a disparu, clique sur Suivant pour continuer.", position:"center"},
   
-  {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
-    action:{type:"click"}},
-
-  {selector:"#rayVille", titre:"Choisis une commune", texte:"Sélectionne n'importe quelle commune dans ce menu.", position:"right",
-    action:{type:"input", notEmpty:true}},
-
-  {selector:"[onclick=\"appliquerRayon()\"]", titre:"Valide le rayon", texte:"Clique sur OK pour appliquer.", position:"right",
-    action:{type:"click"}},
+    {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Fais ces 3 gestes dans l'ordre : 1) clique ici pour déplier le bloc, 2) choisis n'importe quelle commune dans le menu qui apparaît, 3) clique sur OK pour valider. Ça avancera tout seul une fois fait.", position:"right",
+    attendre:()=>!!S.rayC},
 
   {selector:null, titre:"Patiente pendant le calcul", texte:"Le rayon se dessine sur la carte et les entreprises se recalculent — laisse quelques secondes si besoin avant d'enchaîner.", position:"center"},
 
   {selector:"[onclick*=\"'cmBody'\"]", titre:"Communes spécifiques", texte:"Ici, tu coches exactement les communes que tu veux couvrir, une par une — pratique pour combiner plusieurs villes précisément, sans passer par un rayon approximatif. Clique dessus pour déplier.", position:"right",
     action:{type:"click"}},
 
-  {selector:"#communesListBox", titre:"Coche une commune", texte:"Clique sur n'importe quelle commune de la liste pour la sélectionner.", position:"right",
+    {selector:"#communesListBox", titre:"Coche une commune", texte:"Clique sur n'importe quelle commune de la liste pour la sélectionner.", position:"right",
     action:{type:"click", selector:".cmr"}},
 
+  {selector:"#map", titre:"Regarde, la voilà sur la carte", texte:"C'est exactement la commune que tu viens de choisir. Si un secteur d'activité est actif, ses entreprises s'affichent précisément ici, sur ce territoire.", position:"top",
+    avant:()=>{
+      const code=[...S.communesSelect][0];
+      const c=code&&S.communes[code];
+      if(c&&S.map) S.map.setView([c.lat,c.lon],13);
+    }},
+  
   {selector:"#tourAddr", titre:"Tournée terrain — le plus important", texte:"L'outil principal pour préparer un RDV. Tape une adresse, par exemple « 20 rue de Gand Lille ».", position:"right",
     action:{type:"input", contains:"gand"}},
 
