@@ -709,8 +709,12 @@ const GUIDE_STEPS=[
 
    {selector:".sec-check", titre:"Sélectionner une famille entière", texte:"Cette case coche d'un coup tous les sous-codes d'une grande famille (ex : toute la Construction). Clique dessus pour la COCHER (si elle est déjà cochée, clique une deuxième fois).", position:"right",
     avant:()=>{
-      const sec=document.querySelector(".section-item");
-      if(sec){ const list=sec.querySelector(".codes"); const head=sec.querySelector(".sec-h"); if(list&&head&&getComputedStyle(list).display==="none") head.click(); }
+     avant:()=>{
+      let list=[...document.querySelectorAll(".codes")].find(l=>getComputedStyle(l).display!=="none");
+      if(!list){
+        const sec=document.querySelector(".section-item");
+        if(sec){ const head=sec.querySelector(".sec-h"); if(head) head.click(); }
+      }
       const chk=document.querySelector(".sec-check");
       if(chk&&chk.checked) chk.click();
     },
@@ -718,8 +722,12 @@ const GUIDE_STEPS=[
 
   {selector:".cr", titre:"Sélectionner un seul code", texte:"Clique directement sur un sous-code précis pour ne sélectionner que lui, pas toute la famille.", position:"right",
     avant:()=>{
-      const sec=document.querySelector(".section-item");
-      if(sec){ const list=sec.querySelector(".codes"); const head=sec.querySelector(".sec-h"); if(list&&head&&getComputedStyle(list).display==="none") head.click(); }
+          avant:()=>{
+      let list=[...document.querySelectorAll(".codes")].find(l=>getComputedStyle(l).display!=="none");
+      if(!list){
+        const sec=document.querySelector(".section-item");
+        if(sec){ const head=sec.querySelector(".sec-h"); if(head) head.click(); }
+      }
       const row=document.querySelector(".cr");
       if(row&&row.classList.contains("active")) row.click();
     },
