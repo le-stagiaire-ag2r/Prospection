@@ -249,9 +249,8 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
 #guideTooltip .gt-title{font-size:14.5px;font-weight:800;margin-bottom:7px;color:#0f2438;}
 #guideTooltip .gt-texte{font-size:12.5px;line-height:1.6;color:#444;margin-bottom:14px;}
 #guideTooltip .gt-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;}
-#guideTooltip .gt-dots{display:flex;gap:3px;}
-#guideTooltip .gt-dot{width:5px;height:5px;border-radius:50%;background:#e2e2e2;}
-#guideTooltip .gt-dot.active{background:#7c3aed;width:13px;border-radius:3px;}
+#guideTooltip .gt-bar-wrap{flex:1;height:4px;background:#e2e2e2;border-radius:3px;overflow:hidden;margin:0 8px;}
+#guideTooltip .gt-bar-fill{height:100%;background:#7c3aed;transition:width .25s;}
 body.guide-actif{overflow:hidden;}
 #guideBlockers{display:none;}
 #guideBlockers.show{display:block;}
@@ -741,8 +740,8 @@ const GUIDE_STEPS=[
   {selector:"#enrichirFileInput", titre:"Choisis le fichier Excel", texte:"Sélectionne le fichier Excel complet qu'on t'a donné.", position:"bottom",
     action:{type:"input", notEmpty:true}},
 
-  {  {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier — c'est normal, laisse-le travailler. Ça avancera tout seul dès que c'est prêt.", position:"center",
-    attendre:()=>{ const box=document.getElementById("effectifListBox"); return !!(box&&box.querySelector("input[type=checkbox]")); }},
+    {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier — c'est normal, laisse-le travailler. Ça avancera tout seul dès que c'est prêt.", position:"center",
+    attendre:()=>{ return !!(S.full&&S.full.some(r=>r.Effectif_tranche_libelle&&r.Effectif_tranche_libelle!=="Non renseigné / sans salarié")); }},
 
   {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
     action:{type:"click"}},
@@ -867,7 +866,7 @@ function afficherEtapeGuideReelle(step){
     <div class="gt-texte">${step.texte}</div>
         <div class="gt-nav">
       <button class="btn btn-g" onclick="etapePrecedenteGuide()" style="${guideIndex===0?"visibility:hidden":""}">← Précédent</button>
-      <div class="gt-dots">${window._guideStepsActifs.map((_,i)=>`<span class="gt-dot${i===guideIndex?" active":""}"></span>`).join("")}</div>
+            <div class="gt-bar-wrap"><div class="gt-bar-fill" style="width:${Math.round((guideIndex+1)/window._guideStepsActifs.length*100)}%"></div></div>
       <button class="btn btn-p" onclick="etapeSuivanteGuide()">${step.action?"Passer":guideIndex===window._guideStepsActifs.length-1?"Terminer":"Suivant →"}</button>
     </div>
     <div style="text-align:center;margin-top:9px"><a href="#" onclick="terminerGuideInteractif();return false;" style="font-size:10.5px;color:var(--ink-s);text-decoration:underline">Quitter le guide</a></div>`;
