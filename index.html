@@ -742,13 +742,13 @@ const GUIDE_STEPS=[
 
   {selector:"#btnEnrichir", titre:"Clique sur Enrichir", texte:"Ce bouton, en haut de l'écran.", position:"bottom",
     action:{type:"click"}},
-
-    {selector:"#enrichirFileInput", titre:"Choisis le fichier Excel", texte:"Une fenêtre de sélection de fichier s'est ouverte (ou va s'ouvrir) — choisis le fichier Excel complet qu'on t'a donné.", position:"center", permitHidden:true,
-    action:{type:"input", notEmpty:true}},
+  
+  {selector:"[onclick*=\"toggleRayonBlock('rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
+    action:{type:"click"}},
   
   {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier. Un écran de chargement plein écran va s'afficher pendant l'opération. Une fois qu'il a disparu, clique sur Suivant pour continuer.", position:"center"},
   
-    {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
+     {selector:"[onclick*=\"toggleRayonBlock('rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
     action:{type:"click"}},
 
   {selector:"#rayVille", titre:"Choisis une commune", texte:"Sélectionne n'importe quelle commune dans ce menu.", position:"right",
@@ -791,9 +791,12 @@ const GUIDE_STEPS=[
   {selector:null, titre:"On efface la tournée", texte:"On retire ce filtre pour repartir sur une carte neutre.", position:"center",
     avant:()=>{ S.selNAF.clear(); updateChips(); updateActiveNAF(); if(S.tour) effacerTournee(); render(); }},
 
-  {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond gris représente une commune — sa taille indique le nombre d'entreprises. Sans filtre actif (comme maintenant), ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts, et à partir d'un certain zoom, chaque rond individuel représente alors une entreprise précise, pas une commune.", position:"top"},
+    {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond gris représente une commune — sa taille indique le nombre d'entreprises. Sans filtre actif (comme maintenant), ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts, et à partir d'un certain zoom, chaque rond individuel représente alors une entreprise précise, pas une commune.", position:"top"},
 
-  {selector:null, titre:"La fiche d'une entreprise", texte:"Tu vois son statut actuel et qui l'a mis. Tu peux le changer, ajouter une note, ou poser un rappel — visible en temps réel par toute l'équipe.", position:"center"},
+  {selector:"#map", titre:"Cliquer sur une entreprise", texte:"Clique sur un rond gris pour voir apparaître un volet à droite avec toutes les entreprises de cette ville, sans filtre. Clique ensuite sur la première de la liste pour ouvrir sa fiche complète.", position:"top",
+    attendre:()=>document.getElementById("mo")&&document.getElementById("mo").classList.contains("open")},
+
+  {selector:"#mo", titre:"La fiche d'une entreprise", texte:"Tu vois son statut actuel et qui l'a mis. Tu peux le changer, ajouter une note, ou poser un rappel — visible en temps réel par toute l'équipe.", position:"left"},
 
   {selector:"#t-liste", titre:"Onglet Liste", texte:"Toutes les entreprises filtrées en tableau. Clique dessus.", position:"bottom", action:{type:"click"}},
 
