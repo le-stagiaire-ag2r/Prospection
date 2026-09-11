@@ -241,10 +241,10 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
 .ps-comment-cell::after{content:"";display:block;margin-top:2px;height:34px;border:1.3px solid #999;border-radius:4px;background:repeating-linear-gradient(to bottom, transparent, transparent 12px, #ddd 12px, #ddd 13px);}
 .ps-check{width:16px;height:16px;border:1.5px solid #888;border-radius:3px;display:inline-block;}
 .ps-foot{margin-top:16px;font-size:10px;color:#888;}
-#guideOverlay{display:none;position:fixed;inset:0;z-index:8000;}
+#guideOverlay{display:none;position:fixed;inset:0;z-index:8000;pointer-events:none;}
 #guideOverlay.show{display:block;}
 #guideHighlight{position:fixed;display:none;border-radius:8px;box-shadow:0 0 0 9999px rgba(15,36,56,.8);transition:all .3s ease;pointer-events:none;z-index:8001;border:2px solid #fff;}
-#guideTooltip{position:fixed;z-index:8002;background:#fff;border-radius:12px;box-shadow:0 14px 50px rgba(0,0,0,.35);padding:16px 18px;width:300px;transition:top .3s ease,left .3s ease;}
+#guideTooltip{position:fixed;z-index:8002;background:#fff;border-radius:12px;box-shadow:0 14px 50px rgba(0,0,0,.35);padding:16px 18px;width:300px;transition:top .3s ease,left .3s ease;pointer-events:auto;}
 #guideTooltip .gt-progress{font-size:10px;color:#7c3aed;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
 #guideTooltip .gt-title{font-size:14.5px;font-weight:800;margin-bottom:7px;color:#0f2438;}
 #guideTooltip .gt-texte{font-size:12.5px;line-height:1.6;color:#444;margin-bottom:14px;}
@@ -637,7 +637,7 @@ window.fermerGuide=fermerGuide;
 
 // ── VISITE GUIDÉE INTERACTIVE ───────────────────────────────────────────────
 const GUIDE_STEPS=[
-  {selector:null, titre:"Bienvenue sur MEL Pro", texte:"On va faire le tour ensemble, mais en vrai cette fois : je vais te demander de faire les gestes toi-même sur le site, pas juste regarder. Clique sur Suivant pour commencer.", position:"center"},
+   {selector:null, titre:"Bonjour et bienvenue sur MEL Pro 👋", texte:"Je vais t'accompagner pas à pas pour découvrir l'outil — pas de panique, ça ne prend que quelques minutes. On va faire les choses ensemble, en vrai : je te demanderai de cliquer, taper, essayer toi-même directement sur le site, pas juste regarder. Prêt(e) ? Clique sur Suivant pour commencer.", position:"center"},
 
   {selector:"#nafSearch", titre:"Cherche un secteur", texte:"Tape « construction » dans cette barre — regarde ce qui s'affiche en dessous.", position:"right",
     action:{type:"input", contains:"construction"}},
