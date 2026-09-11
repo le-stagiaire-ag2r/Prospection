@@ -741,7 +741,8 @@ const GUIDE_STEPS=[
   {selector:"#enrichirFileInput", titre:"Choisis le fichier Excel", texte:"Sélectionne le fichier Excel complet qu'on t'a donné.", position:"bottom",
     action:{type:"input", notEmpty:true}},
 
-  {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier — c'est normal, laisse-le travailler.", position:"center"},
+  {  {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier — c'est normal, laisse-le travailler. Ça avancera tout seul dès que c'est prêt.", position:"center",
+    attendre:()=>{ const box=document.getElementById("effectifListBox"); return !!(box&&box.querySelector("input[type=checkbox]")); }},
 
   {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
     action:{type:"click"}},
@@ -809,7 +810,7 @@ function afficherEtapeGuide(){
   const tooltip=document.getElementById("guideTooltip");
   const highlight=document.getElementById("guideHighlight");
 
-    if(step.selector){
+  if(step.selector){
     const el=document.querySelector(step.selector);
     if(!el||el.offsetParent===null){
       highlight.style.display="none";
@@ -819,9 +820,23 @@ function afficherEtapeGuide(){
         <div class="gt-progress">Étape ${guideIndex+1} / ${window._guideStepsActifs.length}</div>
         <div class="gt-title">Chargement en cours...</div>
         <div class="gt-texte">On attend que cette partie de l'application soit prête. Ça arrive dans quelques secondes, pas besoin de cliquer.</div>`;
+      positionnerBlockersGuide(null);
       guideWaitTimer=setTimeout(afficherEtapeGuide,300);
       return;
     }
+  }
+  if(step.attendre&&!step.attendre()){
+    document.getElementById("guideHighlight").style.display="none";
+    tooltip.style.transform="translate(-50%,-50%)";
+    tooltip.style.top="50%"; tooltip.style.left="50%";
+    tooltip.innerHTML=`
+      <div class="gt-progress">Étape ${guideIndex+1} / ${window._guideStepsActifs.length}</div>
+      <div class="gt-title">Chargement en cours...</div>
+      <div class="gt-texte">${step.texte}</div>
+      <div style="text-align:center;margin-top:10px"><button class="btn btn-g" onclick="clearTimeout(guideWaitTimer);etapeSuivanteGuide()" style="font-size:11px">C'est déjà fini, continuer quand même</button></div>`;
+    positionnerBlockersGuide(null);
+    guideWaitTimer=setTimeout(afficherEtapeGuide,400);
+    return;
   }
   afficherEtapeGuideReelle(step);
 }
