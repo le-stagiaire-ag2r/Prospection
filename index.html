@@ -637,7 +637,7 @@ window.fermerGuide=fermerGuide;
 
 // ── VISITE GUIDÉE INTERACTIVE ───────────────────────────────────────────────
 const GUIDE_STEPS=[
-   {selector:null, titre:"Bonjour et bienvenue sur MEL Pro 👋", texte:"Je vais t'accompagner pas à pas pour découvrir l'outil — pas de panique, ça ne prend que quelques minutes. On va faire les choses ensemble, en vrai : je te demanderai de cliquer, taper, essayer toi-même directement sur le site, pas juste regarder. Prêt(e) ? Clique sur Suivant pour commencer.", position:"center"},
+  {selector:null, titre:"Bonjour et bienvenue sur MEL Pro 👋", texte:"Je vais t'accompagner pas à pas pour découvrir l'outil — pas de panique, ça ne prend que quelques minutes. On va faire les choses ensemble, en vrai : je te demanderai de cliquer, taper, essayer toi-même directement sur le site, pas juste regarder. Prêt(e) ? Clique sur Suivant pour commencer.", position:"center"},
 
   {selector:"#nafSearch", titre:"Cherche un secteur", texte:"Tape « construction » dans cette barre — regarde ce qui s'affiche en dessous.", position:"right",
     action:{type:"input", contains:"construction"}},
@@ -652,7 +652,7 @@ const GUIDE_STEPS=[
     action:{type:"input", equals:""}},
 
   {selector:"#selectAllNaf", titre:"Tout sélectionner", texte:"Cette case coche TOUS les secteurs d'un coup — utile en tournée terrain. ⚠ Attention : ça déclenche un calcul sur tout le fichier, ça peut prendre plusieurs secondes. Clique dessus pour essayer.", position:"right",
-    action:{type:"click"}, avant:()=>{}},
+    action:{type:"click"}},
 
   {selector:null, titre:"Patiente pendant le calcul", texte:"Tant que tu vois une barre de progression ou que les chiffres à côté des secteurs ne sont pas stabilisés, évite de cliquer sur d'autres filtres en même temps — laisse le calcul se terminer d'abord.", position:"center"},
 
@@ -680,11 +680,30 @@ const GUIDE_STEPS=[
   {selector:"[onclick*=\"'effBody'\"]", titre:"Taille d'entreprise", texte:"Filtre par nombre de salariés. Clique dessus pour déplier ce bloc.", position:"right",
     action:{type:"click"}},
 
-  {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Choisis une commune et un rayon en kilomètres pour voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis.", position:"right"},
+  {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
+    action:{type:"click"}},
 
-  {selector:"[onclick*=\"'cmBody'\"]", titre:"Communes spécifiques", texte:"Coche exactement les communes que tu veux couvrir — pratique pour combiner plusieurs villes précisément.", position:"right"},
+  {selector:"#rayVille", titre:"Choisis une commune", texte:"Sélectionne n'importe quelle commune dans ce menu.", position:"right",
+    action:{type:"input", notEmpty:true}},
 
-  {selector:"#tourAddr", titre:"Tournée terrain", texte:"L'outil principal pour préparer un RDV : tape l'adresse exacte, choisis un petit rayon, et tu vois tout ce qu'il y a autour. Rappel : c'est pour affiner autour d'un RDV déjà pris, pas pour démarcher à froid.", position:"right"},
+  {selector:"[onclick=\"appliquerRayon()\"]", titre:"Valide le rayon", texte:"Clique sur OK pour appliquer.", position:"right",
+    action:{type:"click"}},
+
+  {selector:null, titre:"Patiente pendant le calcul", texte:"Le rayon se dessine sur la carte et les entreprises se recalculent — laisse quelques secondes si besoin avant d'enchaîner.", position:"center"},
+
+  {selector:"[onclick*=\"'cmBody'\"]", titre:"Communes spécifiques", texte:"Ici, tu coches exactement les communes que tu veux couvrir, une par une — pratique pour combiner plusieurs villes précisément, sans passer par un rayon approximatif. Clique dessus pour déplier.", position:"right",
+    action:{type:"click"}},
+
+  {selector:"#communesListBox", titre:"Coche une commune", texte:"Clique sur n'importe quelle commune de la liste pour la sélectionner.", position:"right",
+    action:{type:"click", selector:".cmr"}},
+
+  {selector:"#tourAddr", titre:"Tournée terrain — le plus important", texte:"L'outil principal pour préparer un RDV. Tape une adresse, par exemple « 20 rue de Gand Lille ».", position:"right",
+    action:{type:"input", contains:"gand"}},
+
+  {selector:"#btnTour", titre:"Lance la recherche", texte:"Clique sur la loupe pour valider l'adresse.", position:"right",
+    action:{type:"click"}},
+
+  {selector:null, titre:"Patiente pendant la recherche", texte:"L'adresse se géocode et les entreprises autour se calculent — quelques secondes suffisent normalement.", position:"center"},
 
   {selector:"#tourPrint", titre:"Imprimer / PDF", texte:"Depuis une tournée terrain, génère une fiche imprimable à faire remplir par ton client en RDV.", position:"bottom"},
 
@@ -776,7 +795,7 @@ function afficherEtapeGuideReelle(step){
       <button class="btn btn-p" onclick="etapeSuivanteGuide()">${step.action?"Passer":guideIndex===window._guideStepsActifs.length-1?"Terminer":"Suivant →"}</button>
     </div>`;
 
-  if(el) el.scrollIntoView({block:"center",behavior:"smooth"});
+    if(el) el.scrollIntoView({block:"center",behavior:"auto"});
 
   setTimeout(()=>{
     if(el){
@@ -786,9 +805,12 @@ function afficherEtapeGuideReelle(step){
       highlight.style.width=(r.width+12)+"px"; highlight.style.height=(r.height+12)+"px";
       const tw=tooltip.offsetWidth, th=tooltip.offsetHeight;
       let top,left; const pos=step.position||"bottom";
-      if(pos==="right"){ top=r.top+r.height/2-th/2; left=r.right+18; }
-      else if(pos==="left"){ top=r.top+r.height/2-th/2; left=r.left-tw-18; }
-      else if(pos==="top"){ top=r.top-th-14; left=r.left+r.width/2-tw/2; }
+           let posReelle=pos;
+      if(pos==="right"&&r.right+18+tw>window.innerWidth) posReelle="left";
+      else if(pos==="left"&&r.left-18-tw<0) posReelle="right";
+      if(posReelle==="right"){ top=r.top+r.height/2-th/2; left=r.right+18; }
+      else if(posReelle==="left"){ top=r.top+r.height/2-th/2; left=r.left-tw-18; }
+      else if(posReelle==="top"){ top=r.top-th-14; left=r.left+r.width/2-tw/2; }
       else { top=r.bottom+14; left=r.left+r.width/2-tw/2; }
       top=Math.max(10,Math.min(top,window.innerHeight-th-10));
       left=Math.max(10,Math.min(left,window.innerWidth-tw-10));
@@ -804,13 +826,15 @@ function afficherEtapeGuideReelle(step){
       const cibleSelector=step.action.selector||step.selector;
       const cible=document.querySelector(cibleSelector);
       if(cible){
-        if(step.action.type==="input"){
+               if(step.action.type==="input"){
           guideActionListener=()=>{
             const val=cible.value.trim().toLowerCase();
             if(step.action.equals!==undefined){ if(val===step.action.equals) etapeSuivanteGuide(); }
             else if(step.action.contains){ if(val.includes(step.action.contains)) etapeSuivanteGuide(); }
+            else if(step.action.notEmpty){ if(val!=="") etapeSuivanteGuide(); }
           };
           cible.addEventListener("input",guideActionListener);
+          cible.addEventListener("change",guideActionListener);
           guideActionEl=cible;
         } else if(step.action.type==="click"){
           guideActionListener=()=>setTimeout(etapeSuivanteGuide,150);
