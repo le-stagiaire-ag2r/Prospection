@@ -845,7 +845,7 @@ window.terminerGuideInteractif=terminerGuideInteractif;
  
   // ── INTERRUPTEUR MAINTENANCE ────────────────────────────────────────────────
 // Passe à true pour bloquer tout le monde instantanément, false pour rouvrir le site.
-const MAINTENANCE=false;
+const MAINTENANCE=true;
 if(MAINTENANCE){
   document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById("maintenanceOverlay").style.display="flex";
