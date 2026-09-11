@@ -707,9 +707,8 @@ const GUIDE_STEPS=[
   {selector:"#selectAllNaf", titre:"On redécoche", texte:"Reclique sur la même case pour tout décocher, on va se concentrer sur un seul secteur pour la suite.", position:"right",
     action:{type:"click"}},
 
-   {selector:".sec-check", titre:"Sélectionner une famille entière", texte:"Cette case coche d'un coup tous les sous-codes d'une grande famille (ex : toute la Construction). Clique dessus pour la COCHER (si elle est déjà cochée, clique une deuxième fois).", position:"right",
+      {selector:".sec-check", titre:"Sélectionner une famille entière", texte:"Cette case coche d'un coup tous les sous-codes d'une grande famille (ex : toute la Construction). Clique dessus pour la COCHER (si elle est déjà cochée, clique une deuxième fois).", position:"right",
     avant:()=>{
-     avant:()=>{
       let list=[...document.querySelectorAll(".codes")].find(l=>getComputedStyle(l).display!=="none");
       if(!list){
         const sec=document.querySelector(".section-item");
@@ -719,10 +718,9 @@ const GUIDE_STEPS=[
       if(chk&&chk.checked) chk.click();
     },
     action:{type:"click", verifie:()=>{ const chk=document.querySelector(".sec-check"); return chk&&chk.checked; }}},
-
+  
   {selector:".cr", titre:"Sélectionner un seul code", texte:"Clique directement sur un sous-code précis pour ne sélectionner que lui, pas toute la famille.", position:"right",
     avant:()=>{
-          avant:()=>{
       let list=[...document.querySelectorAll(".codes")].find(l=>getComputedStyle(l).display!=="none");
       if(!list){
         const sec=document.querySelector(".section-item");
