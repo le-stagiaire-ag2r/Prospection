@@ -241,6 +241,18 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
 .ps-comment-cell::after{content:"";display:block;margin-top:2px;height:34px;border:1.3px solid #999;border-radius:4px;background:repeating-linear-gradient(to bottom, transparent, transparent 12px, #ddd 12px, #ddd 13px);}
 .ps-check{width:16px;height:16px;border:1.5px solid #888;border-radius:3px;display:inline-block;}
 .ps-foot{margin-top:16px;font-size:10px;color:#888;}
+#guideOverlay{display:none;position:fixed;inset:0;z-index:8000;}
+#guideOverlay.show{display:block;}
+#guideHighlight{position:fixed;display:none;border-radius:8px;box-shadow:0 0 0 9999px rgba(15,36,56,.8);transition:all .3s ease;pointer-events:none;z-index:8001;border:2px solid #fff;}
+#guideTooltip{position:fixed;z-index:8002;background:#fff;border-radius:12px;box-shadow:0 14px 50px rgba(0,0,0,.35);padding:16px 18px;width:300px;transition:top .3s ease,left .3s ease;}
+#guideTooltip .gt-progress{font-size:10px;color:#7c3aed;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+#guideTooltip .gt-title{font-size:14.5px;font-weight:800;margin-bottom:7px;color:#0f2438;}
+#guideTooltip .gt-texte{font-size:12.5px;line-height:1.6;color:#444;margin-bottom:14px;}
+#guideTooltip .gt-nav{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+#guideTooltip .gt-dots{display:flex;gap:3px;}
+#guideTooltip .gt-dot{width:5px;height:5px;border-radius:50%;background:#e2e2e2;}
+#guideTooltip .gt-dot.active{background:#7c3aed;width:13px;border-radius:3px;}
+body.guide-actif{overflow:hidden;}
 @media print{
   body *{visibility:hidden;}
   #printSheet, #printSheet *{visibility:visible;}
@@ -620,10 +632,126 @@ function ouvrirGuide(){ document.getElementById("moGuide").classList.add("open")
 window.ouvrirGuide=ouvrirGuide;
 function fermerGuide(){ document.getElementById("moGuide").classList.remove("open"); }
 window.fermerGuide=fermerGuide;
+
+// ── VISITE GUIDÉE INTERACTIVE ───────────────────────────────────────────────
+const GUIDE_STEPS=[
+  {selector:null, titre:"Bienvenue sur MEL Pro", texte:"On va faire le tour de toutes les fonctionnalités ensemble, étape par étape. Ça prend quelques minutes, mais après tu sauras tout utiliser. Clique sur Suivant pour commencer.", position:"center"},
+  {selector:"#nafSearch", titre:"Secteur d'activité", texte:"Cette liste montre tous les secteurs d'activité (codes NAF). C'est le premier filtre à utiliser : coche un ou plusieurs secteurs pour voir uniquement les entreprises qui correspondent.", position:"right"},
+  {selector:"#selectAllNaf", titre:"Tout sélectionner", texte:"Cette case coche d'un coup TOUS les secteurs — utile en tournée terrain quand tu veux voir toutes les entreprises autour de toi, peu importe leur activité.", position:"right"},
+  {selector:".sec-check", titre:"Sélectionner une famille entière", texte:"À côté de chaque grande famille (Construction, Commerce...), cette case sélectionne d'un coup tous ses sous-codes, sans les cocher un par un.", position:"right"},
+  {selector:".cr", titre:"Sélectionner un code précis", texte:"Clique directement sur un sous-code pour ne sélectionner que lui — par exemple uniquement les boulangeries, pas toute la restauration.", position:"right"},
+  {selector:"#chipsArea", titre:"Retirer un secteur", texte:"Une fois sélectionné, chaque secteur apparaît ici sous forme d'étiquette. Clique sur la croix pour le retirer de la sélection.", position:"bottom"},
+  {selector:".nb", titre:"Les chiffres à côté des codes", texte:"Ce nombre indique combien d'entreprises de ce secteur sont présentes dans la zone actuellement affichée. Il se recalcule automatiquement à chaque changement de filtre (rayon, tournée, commune) — inutile de rafraîchir la page.", position:"left"},
+  {selector:null, titre:"⚠ Pendant le géocodage", texte:"Quand l'app calcule les positions précises des entreprises, tu verras une barre de progression. Évite de cliquer trop vite sur plusieurs filtres en même temps — laisse le calcul se terminer avant d'enchaîner, sinon les résultats peuvent se mélanger.", position:"center"},
+  {selector:"[onclick*=\"'effBody'\"]", titre:"Taille d'entreprise", texte:"Filtre par nombre de salariés — utile si tu cherches spécifiquement de petites structures, ou au contraire des entreprises plus importantes.", position:"right"},
+  {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Choisis une commune et un rayon en kilomètres pour voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis.", position:"right"},
+  {selector:"[onclick*=\"'cmBody'\"]", titre:"Communes spécifiques", texte:"Coche exactement les communes que tu veux couvrir — pratique pour combiner plusieurs villes précisément, sans passer par un rayon approximatif.", position:"right"},
+  {selector:"#tourAddr", titre:"Tournée terrain", texte:"L'outil principal pour préparer un RDV : tape l'adresse exacte, choisis un petit rayon (100-500m), et tu vois tout ce qu'il y a autour pour enrichir ta visite. Rappel : ce n'est pas fait pour démarcher à froid, mais pour affiner autour d'un rendez-vous déjà pris.", position:"right"},
+  {selector:"#tourPrint", titre:"Imprimer / PDF", texte:"Depuis une tournée terrain, génère une fiche imprimable avec les entreprises autour, à faire remplir directement par ton client en RDV.", position:"bottom"},
+  {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond représente une commune — sa taille indique le nombre d'entreprises. Sans filtre actif, ils restent gris (juste une indication de volume). Dès qu'un filtre est actif, ils se colorent selon les statuts des entreprises qu'ils contiennent.", position:"left"},
+  {selector:"#map", titre:"Cliquer sur un point individuel", texte:"Une fois un secteur sélectionné, chaque entreprise apparaît comme un petit point sur la carte. Clique dessus pour ouvrir sa fiche complète : coordonnées, dirigeant, et surtout son statut actuel.", position:"left"},
+  {selector:null, titre:"La fiche d'une entreprise", texte:"À l'ouverture, tu vois si l'entreprise a déjà un statut (Non contacté, À contacter, En cours, RDV pris, Pas intéressé, Chaud) et qui l'a mis. Tu peux le changer, ajouter une note dans le journal, ou poser un rappel à une date précise — tout ça est visible en temps réel par toute l'équipe.", position:"center"},
+  {selector:"#t-liste", titre:"Onglet Liste", texte:"Affiche toutes les entreprises filtrées sous forme de tableau — pratique pour trier ou chercher rapidement sans passer par la carte.", position:"bottom"},
+  {selector:"#t-stats", titre:"Onglet Stats", texte:"Tes statistiques d'avancement : nombre de contacts, de RDV, taux de conversion par secteur, et le comparatif entre les membres de l'équipe.", position:"bottom"},
+  {selector:"#btnExport", titre:"Exporter", texte:"Télécharge en Excel les entreprises actuellement filtrées avec leur statut. Réservé aux managers/administrateurs.", position:"bottom"},
+  {selector:"#btnEnrichir", titre:"Enrichir", texte:"Complète les données déjà chargées avec les colonnes manquantes (SIREN, TVA, forme juridique...) à partir de ton fichier Excel complet.", position:"bottom"},
+  {selector:"[onclick*=\"exporterRapport()\"]", titre:"Rapport", texte:"Exporte un récapitulatif de tout ton suivi actuel. Réservé aux managers/administrateurs.", position:"bottom"},
+  {selector:null, titre:"C'est fait !", texte:"Tu as fait le tour de l'essentiel. Le bouton \"Guide\" en haut te permet de revoir tout ça quand tu veux. Bonne prospection !", position:"center"}
+];
+
+let guideIndex=0;
+let guideWaitTimer=null;
+
+function demarrerGuideInteractif(){
+  guideIndex=0;
+  document.getElementById("guideOverlay").classList.add("show");
+  document.body.classList.add("guide-actif");
+  window._guideStepsActifs=GUIDE_STEPS.filter(s=>estManager()||(s.selector!=="#btnExport"&&!(s.selector&&s.selector.includes("exporterRapport"))));
+  afficherEtapeGuide();
+}
+window.demarrerGuideInteractif=demarrerGuideInteractif;
+
+function afficherEtapeGuide(){
+  clearTimeout(guideWaitTimer);
+  if(guideIndex<0) guideIndex=0;
+  if(guideIndex>=window._guideStepsActifs.length){ terminerGuideInteractif(); return; }
+  const step=window._guideStepsActifs[guideIndex];
+  const tooltip=document.getElementById("guideTooltip");
+  const highlight=document.getElementById("guideHighlight");
+
+  if(step.selector){
+    const el=document.querySelector(step.selector);
+    if(!el||el.offsetParent===null){
+      highlight.style.display="none";
+      tooltip.style.transform="translate(-50%,-50%)";
+      tooltip.style.top="50%"; tooltip.style.left="50%";
+      tooltip.innerHTML=`
+        <div class="gt-progress">Étape ${guideIndex+1} / ${window._guideStepsActifs.length}</div>
+        <div class="gt-title">Chargement en cours...</div>
+        <div class="gt-texte">On attend que cette partie de l'application soit prête. Ça arrive dans quelques secondes, pas besoin de cliquer.</div>`;
+      guideWaitTimer=setTimeout(afficherEtapeGuide,300);
+      return;
+    }
+  }
+  afficherEtapeGuideReelle(step);
+}
+
+function afficherEtapeGuideReelle(step){
+  const tooltip=document.getElementById("guideTooltip");
+  const highlight=document.getElementById("guideHighlight");
+  const el=step.selector?document.querySelector(step.selector):null;
+
+  tooltip.style.transform="none";
+  tooltip.innerHTML=`
+    <div class="gt-progress">Étape ${guideIndex+1} / ${window._guideStepsActifs.length}</div>
+    <div class="gt-title">${step.titre}</div>
+    <div class="gt-texte">${step.texte}</div>
+    <div class="gt-nav">
+      <button class="btn btn-g" onclick="etapePrecedenteGuide()" style="${guideIndex===0?"visibility:hidden":""}">← Précédent</button>
+      <div class="gt-dots">${window._guideStepsActifs.map((_,i)=>`<span class="gt-dot${i===guideIndex?" active":""}"></span>`).join("")}</div>
+      <button class="btn btn-p" onclick="etapeSuivanteGuide()">${guideIndex===window._guideStepsActifs.length-1?"Terminer":"Suivant →"}</button>
+    </div>`;
+
+  if(el) el.scrollIntoView({block:"center",behavior:"smooth"});
+
+  setTimeout(()=>{
+    if(el){
+      const r=el.getBoundingClientRect();
+      highlight.style.display="block";
+      highlight.style.top=(r.top-6)+"px"; highlight.style.left=(r.left-6)+"px";
+      highlight.style.width=(r.width+12)+"px"; highlight.style.height=(r.height+12)+"px";
+      const tw=tooltip.offsetWidth, th=tooltip.offsetHeight;
+      let top,left; const pos=step.position||"bottom";
+      if(pos==="right"){ top=r.top+r.height/2-th/2; left=r.right+18; }
+      else if(pos==="left"){ top=r.top+r.height/2-th/2; left=r.left-tw-18; }
+      else if(pos==="top"){ top=r.top-th-14; left=r.left+r.width/2-tw/2; }
+      else { top=r.bottom+14; left=r.left+r.width/2-tw/2; }
+      top=Math.max(10,Math.min(top,window.innerHeight-th-10));
+      left=Math.max(10,Math.min(left,window.innerWidth-tw-10));
+      tooltip.style.top=top+"px"; tooltip.style.left=left+"px";
+    } else {
+      highlight.style.display="none";
+      tooltip.style.top="50%"; tooltip.style.left="50%";
+      tooltip.style.transform="translate(-50%,-50%)";
+    }
+  },350);
+}
+
+function etapeSuivanteGuide(){ clearTimeout(guideWaitTimer); guideIndex++; afficherEtapeGuide(); }
+window.etapeSuivanteGuide=etapeSuivanteGuide;
+function etapePrecedenteGuide(){ clearTimeout(guideWaitTimer); if(guideIndex>0){ guideIndex--; afficherEtapeGuide(); } }
+window.etapePrecedenteGuide=etapePrecedenteGuide;
+function terminerGuideInteractif(){
+  clearTimeout(guideWaitTimer);
+  document.getElementById("guideOverlay").classList.remove("show");
+  document.body.classList.remove("guide-actif");
+  try{ localStorage.setItem("mel_guide_vu_v1","1"); }catch(e){}
+}
+window.terminerGuideInteractif=terminerGuideInteractif;
  
   // ── INTERRUPTEUR MAINTENANCE ────────────────────────────────────────────────
 // Passe à true pour bloquer tout le monde instantanément, false pour rouvrir le site.
-const MAINTENANCE=true;
+const MAINTENANCE=false;
 if(MAINTENANCE){
   document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById("maintenanceOverlay").style.display="flex";
@@ -1853,7 +1981,8 @@ async function demarrerDepuisEcranAccueil(){
     const [lon,lat]=feat.geometry.coordinates;
     document.getElementById("welcomeScreen").classList.remove("show");
     document.getElementById("tourAddr").value=feat.properties.label;
-    await demarrerTourneeAvecPoint(lat,lon,feat.properties.label,250,feat.properties.citycode);
+        await demarrerTourneeAvecPoint(lat,lon,feat.properties.label,250,feat.properties.citycode);
+    try{ if(!localStorage.getItem("mel_guide_vu_v1")) setTimeout(demarrerGuideInteractif,400); }catch(e){}
   }catch(e){
     stEl.textContent="Erreur : "+e.message;
   }
@@ -1862,6 +1991,7 @@ window.demarrerDepuisEcranAccueil=demarrerDepuisEcranAccueil;
 
 function passerEcranAccueil(){
   document.getElementById("welcomeScreen").classList.remove("show");
+  try{ if(!localStorage.getItem("mel_guide_vu_v1")) setTimeout(demarrerGuideInteractif,400); }catch(e){}
 }
 window.passerEcranAccueil=passerEcranAccueil;
 
@@ -3754,6 +3884,10 @@ function isLate(iso){ return iso<new Date().toISOString().slice(0,10); }
   <svg viewBox="0 0 24 24" style="width:52px;height:52px;fill:none;stroke:currentColor;stroke-width:1.5;margin-bottom:18px"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
   <div style="font-size:20px;font-weight:800;margin-bottom:8px">Site en maintenance</div>
   <div style="font-size:13px;color:#cbd5e1;max-width:400px;line-height:1.6">L'application est temporairement indisponible. Réessaie plus tard.</div>
+</div>
+<div id="guideOverlay">
+  <div id="guideHighlight"></div>
+  <div id="guideTooltip"></div>
 </div>
 </body>
 </html>
