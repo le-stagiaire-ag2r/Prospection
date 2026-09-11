@@ -748,8 +748,14 @@ const GUIDE_STEPS=[
   
   {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier. Un écran de chargement plein écran va s'afficher pendant l'opération. Une fois qu'il a disparu, clique sur Suivant pour continuer.", position:"center"},
   
-    {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Fais ces 3 gestes dans l'ordre : 1) clique ici pour déplier le bloc, 2) choisis n'importe quelle commune dans le menu qui apparaît, 3) clique sur OK pour valider. Ça avancera tout seul une fois fait.", position:"right",
-    attendre:()=>!!S.rayC},
+    {selector:"[onclick*=\"'rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
+    action:{type:"click"}},
+
+  {selector:"#rayVille", titre:"Choisis une commune", texte:"Sélectionne n'importe quelle commune dans ce menu.", position:"right",
+    action:{type:"input", notEmpty:true}},
+
+  {selector:"[onclick=\"appliquerRayon()\"]", titre:"Valide le rayon", texte:"Clique sur OK pour appliquer.", position:"right",
+    action:{type:"click"}},
 
   {selector:null, titre:"Patiente pendant le calcul", texte:"Le rayon se dessine sur la carte et les entreprises se recalculent — laisse quelques secondes si besoin avant d'enchaîner.", position:"center"},
 
