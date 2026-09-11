@@ -729,7 +729,7 @@ function afficherEtapeGuide(){
   const tooltip=document.getElementById("guideTooltip");
   const highlight=document.getElementById("guideHighlight");
 
-  if(step.selector){
+    if(step.selector){
     const el=document.querySelector(step.selector);
     if(!el||el.offsetParent===null){
       highlight.style.display="none";
@@ -743,7 +743,10 @@ function afficherEtapeGuide(){
       return;
     }
   }
- let guideActionListener=null;
+  afficherEtapeGuideReelle(step);
+}
+
+let guideActionListener=null;
 let guideActionEl=null;
 
 function afficherEtapeGuideReelle(step){
