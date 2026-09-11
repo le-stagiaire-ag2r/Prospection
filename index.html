@@ -584,6 +584,15 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
 </div>
 
 <script>
+  // ── INTERRUPTEUR MAINTENANCE ────────────────────────────────────────────────
+// Passe à true pour bloquer tout le monde instantanément, false pour rouvrir le site.
+const MAINTENANCE=true;
+if(MAINTENANCE){
+  document.addEventListener("DOMContentLoaded",()=>{
+    document.getElementById("maintenanceOverlay").style.display="flex";
+  });
+}
+  
 const firebaseConfig = {
   apiKey: "AIzaSyBdeyrVbuA_sMHCuM_3dQKrKo2AFeBwB-Y",
   authDomain: "prospection-acb80.firebaseapp.com",
@@ -3686,7 +3695,11 @@ function initKeyboard(){
 function fmtDate(iso){ if(!iso) return ""; const [y,m,d]=iso.split("-"); return `${d}/${m}/${y}`; }
 function isToday(iso){ return iso===new Date().toISOString().slice(0,10); }
 function isLate(iso){ return iso<new Date().toISOString().slice(0,10); }
-
 </script>
+<div id="maintenanceOverlay" style="display:none;position:fixed;inset:0;z-index:9999;background:#0f2438;color:#fff;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:20px">
+  <svg viewBox="0 0 24 24" style="width:52px;height:52px;fill:none;stroke:currentColor;stroke-width:1.5;margin-bottom:18px"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+  <div style="font-size:20px;font-weight:800;margin-bottom:8px">Site en maintenance</div>
+  <div style="font-size:13px;color:#cbd5e1;max-width:400px;line-height:1.6">L'application est temporairement indisponible. Réessaie plus tard.</div>
+</div>
 </body>
 </html>
