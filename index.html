@@ -293,7 +293,8 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
   </div>
   <input type="file" id="enrichirFileInput" accept=".xlsx" style="display:none" onchange="enrichirDepuisExcel(this.files[0])">
   <div class="ls-warn" id="lsWarn"><svg class="ic" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg> Stockage presque plein</div>
-  <button class="btn btn-g" id="commercialPill" onclick="ouvrirGestionMembres()" title="Changer de membre / gérer l'équipe"><span id="commercialDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#94a3b8;flex-shrink:0"></span><span id="commercialName">—</span></button>
+   <button class="btn btn-g" id="commercialPill" onclick="ouvrirGestionMembres()" title="Changer de membre / gérer l'équipe"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg><span id="commercialName">—</span></button>
+  <button class="btn btn-g" onclick="ouvrirGuide()" title="Guide d'utilisation"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Guide</button>
   <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0">
     <button class="btn btn-o" id="btnExport" style="display:none" onclick="exporterSelection()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Exporter</button>
     <button class="btn btn-v" onclick="exporterRapport()"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19V10"/><path d="M12 19V4"/><path d="M20 19v-7"/></svg> Rapport</button>
@@ -554,13 +555,44 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
         <div style="margin-top:14px;padding:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:var(--r)">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#991b1b;margin-bottom:5px">⚠ Zone dangereuse</div>
           <div style="font-size:11px;color:#991b1b;margin-bottom:7px;line-height:1.4">Efface définitivement les statuts, notes et rappels de tous les membres. Les membres eux-mêmes ne sont pas supprimés.</div>
-          <button class="btn btn-g" onclick="viderToutLeCache()" style="background:#fff;color:#991b1b;border:1px solid #fca5a5;width:100%;justify-content:center">Vider le cache de TOUS les membres</button>
+                    <button class="btn btn-g" onclick="viderToutLeCache()" style="background:#fff;color:#991b1b;border:1px solid #fca5a5;width:100%;justify-content:center">Vider le cache de TOUS les membres</button>
         </div>
       </div>
     </div>
   </div>
 </div>
 
+<div class="mo" id="moGuide" onclick="if(event.target===this)fermerGuide()">
+  <div class="modal" style="width:460px;max-height:80vh">
+    <div class="mo-h">
+      <div class="mo-title"><div class="mo-name">Guide d'utilisation</div></div>
+      <button class="mo-close" onclick="fermerGuide()">✕</button>
+    </div>
+    <div class="mo-body" style="line-height:1.6;font-size:12.5px">
+
+      <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:var(--r);padding:11px 13px;margin-bottom:14px">
+        <div style="font-weight:700;margin-bottom:4px">À quoi sert cet outil</div>
+        Cet outil sert à <b>affiner votre prospection autour d'un rendez-vous déjà pris</b> — pas à démarcher à froid une liste entière d'un secteur. Avant un RDV, entrez l'adresse dans "Tournée terrain" pour voir les entreprises alentour et enrichir votre visite.
+      </div>
+
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:var(--r);padding:11px 13px;margin-bottom:14px">
+        <div style="font-weight:700;margin-bottom:4px;color:#991b1b">Ce qu'il ne faut pas faire</div>
+        Extraire une liste complète d'un secteur d'activité pour du démarchage à froid détourne l'outil de son usage. Les exports en masse sont réservés aux managers pour cette raison.
+      </div>
+
+      <div class="j-title">Les bases</div>
+      <p><b>Rayon géographique</b> — choisis une commune et un rayon (km) pour voir les entreprises alentour, filtrées par secteur d'activité.</p>
+      <p><b>Tournée terrain</b> — tape l'adresse de ton RDV et un rayon (m), pour voir précisément ce qu'il y a autour, dans l'ordre le plus pratique à visiter à pied.</p>
+      <p><b>Statuts</b> — clique le menu déroulant sur une entreprise pour indiquer où tu en es (à contacter, en cours, RDV pris...). Ça se voit immédiatement par toute l'équipe.</p>
+      <p><b>Recherche</b> — tape un nom d'entreprise en haut pour la retrouver directement, sans naviguer sur la carte.</p>
+      <p><b>Imprimer / PDF</b> — depuis une tournée, génère une fiche à faire remplir par le client sur place.</p>
+
+      <div class="j-title">Besoin d'aide ?</div>
+      <p>Contacte ton manager.</p>
+
+    </div>
+  </div>
+</div>
 <!-- Modal -->
 <div class="mo" id="mo" onclick="if(event.target===this)fermerModal()">
   <div class="modal">
@@ -584,9 +616,14 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
 </div>
 
 <script>
+function ouvrirGuide(){ document.getElementById("moGuide").classList.add("open"); }
+window.ouvrirGuide=ouvrirGuide;
+function fermerGuide(){ document.getElementById("moGuide").classList.remove("open"); }
+window.fermerGuide=fermerGuide;
+ 
   // ── INTERRUPTEUR MAINTENANCE ────────────────────────────────────────────────
 // Passe à true pour bloquer tout le monde instantanément, false pour rouvrir le site.
-const MAINTENANCE=true;
+const MAINTENANCE=false;
 if(MAINTENANCE){
   document.addEventListener("DOMContentLoaded",()=>{
     document.getElementById("maintenanceOverlay").style.display="flex";
@@ -722,7 +759,8 @@ function ecouterEquipesEtMembres(){
         afficherProfilScreen();
       }
     }
-    updateCommercialPill();
+        updateCommercialPill();
+    appliquerRestrictionsRole();
     renderMembresListe();
   }, err=>console.error("[membres]",err));
 }
@@ -736,6 +774,15 @@ function getCommercial(){
 function estManager(){
   const m=S.membres.find(x=>x.id===S.membreActifId);
   return m&&(m.role==="manager"||m.role==="administrateur");
+}
+// Masque les boutons d'export en masse pour les conseillers — l'outil sert à affiner la prospection
+// autour d'un RDV, pas à extraire des listes brutes d'entreprises pour démarcher à froid.
+function appliquerRestrictionsRole(){
+  const manager=estManager();
+  ["btnExport","btnRapport"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=manager?"":"none";
+  });
 }
 function updateCommercialPill(){
   const el=document.getElementById("commercialName"); if(!el) return;
@@ -759,6 +806,7 @@ function selectionnerProfilInitial(id){
   setMembreActifIdStockage(id);
   updateCommercialPill();
   updateRappelsBadge();
+    appliquerRestrictionsRole();
   document.getElementById("profilScreen").classList.remove("show");
   document.getElementById("welcomeScreen").classList.add("show");
   document.body.classList.remove("mode-invite");
@@ -825,6 +873,7 @@ function selectionnerMembre(id){
   S.membreActifId=id; S.modeInvite=false; setMembreActifIdStockage(id);
   document.body.classList.remove("mode-invite");
   updateRappelsBadge();
+    appliquerRestrictionsRole();
   updateCommercialPill(); renderMembresListe(); render(); refreshActiveView();
   if(S.panelMode) renderPanel();
   toast(`Membre actif : ${getCommercial()}`);
@@ -923,6 +972,7 @@ function appliquerZoneMembre(membreId){
 window.appliquerZoneMembre=appliquerZoneMembre;
 
 function exporterCacheMembre(membreId){
+    if(!estManager()){ toast("Réservé aux managers/administrateurs."); return; }
   const m=S.membres.find(x=>x.id===membreId); if(!m) return;
   const suivi=chargerSuiviMembre(membreId);
   const nb=Object.keys(suivi).length;
@@ -3533,6 +3583,7 @@ function refreshActiveView(){
 // EXPORTS
 // ════════════════════════════════════════════════════════════════
 async function exporterSelection(){
+   if(!estManager()){ toast("Export réservé aux managers/administrateurs — utilise \"Imprimer / PDF\" pour ta tournée."); return; }
   if(!S.fichier){alert("Charge un fichier.");return;}
   const btn=document.getElementById("btnExport"); btn.textContent="..."; btn.disabled=true;
   try{
@@ -3569,6 +3620,7 @@ async function exporterSelection(){
 window.exporterSelection=exporterSelection;
 
 function exporterRapport(){
+   if(!estManager()){ toast("Export réservé aux managers/administrateurs — utilise \"Imprimer / PDF\" pour ta tournée."); return; }
   const suivi=loadSuivi(); const keys=Object.keys(suivi);
   if(!keys.length){alert("Aucun suivi.");return;}
   const rows=keys.map(siret=>{
@@ -3592,6 +3644,7 @@ window.exporterRapport=exporterRapport;
 // pour distinguer qui a fait quoi. Une ligne par (entreprise, membre) — si deux membres ont touché la
 // même entreprise, elle apparaît deux fois, une par membre, pour ne rien perdre.
 function exporterRapportEquipe(){
+    if(!estManager()){ toast("Réservé aux managers/administrateurs."); return; }
   if(!S.membres.length){ alert("Aucun membre."); return; }
   const rows=[];
   S.membres.forEach(m=>{
@@ -3622,6 +3675,7 @@ window.exporterRapportEquipe=exporterRapportEquipe;
 // chronologique complète de l'activité de toute l'équipe, à partir de l'historique conservé
 // sur chaque entreprise (20 dernières actions par entreprise).
 function exporterHistoriqueComplet(){
+   if(!estManager()){ toast("Réservé aux managers/administrateurs."); return; }
   const rows=[];
   Object.entries(S._suiviCache||{}).forEach(([siret,e])=>{
     (e.historique||[]).forEach(h=>{
