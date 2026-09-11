@@ -253,7 +253,9 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
 #guideTooltip .gt-dot{width:5px;height:5px;border-radius:50%;background:#e2e2e2;}
 #guideTooltip .gt-dot.active{background:#7c3aed;width:13px;border-radius:3px;}
 body.guide-actif{overflow:hidden;}
-@media print{
+#guideBlockers{display:none;}
+#guideBlockers.show{display:block;}
+#guideBlockers div{position:fixed;z-index:8001;pointer-events:auto;cursor:not-allowed;}@media print{
   body *{visibility:hidden;}
   #printSheet, #printSheet *{visibility:visible;}
   #printSheet{display:block;position:absolute;top:0;left:0;width:100%;padding:20px;}
@@ -266,6 +268,14 @@ body.guide-actif{overflow:hidden;}
 </style>
 </head>
 <body>
+
+  <div id="topLoadBar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:7500;background:#0f2438;color:#fff;padding:5px 14px;font-size:11px;display:flex;align-items:center;gap:10px">
+  <span id="topLoadBarTexte">Chargement...</span>
+  <div style="flex:1;height:5px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden">
+    <div id="topLoadBarFill" style="height:100%;width:0%;background:#7c3aed;transition:width .3s"></div>
+  </div>
+  <span id="topLoadBarPct">0%</span>
+</div>
 
 <!-- Loading screen -->
 <div class="loading-screen" id="loadingScreen">
@@ -630,6 +640,38 @@ body.guide-actif{overflow:hidden;}
 </div>
 
 <script>
+
+// Bloque tout clic/saisie en dehors de l'élément actuellement ciblé par le guide, pour empêcher
+// de cliquer ailleurs et désynchroniser la visite. Le clic est absorbé et redirige vers le bon endroit.
+function positionnerBlockersGuide(rect){
+  const wrap=document.getElementById("guideBlockers");
+  if(!rect){ wrap.classList.remove("show"); return; }
+  wrap.classList.add("show");
+  const m=6, top=Math.max(0,rect.top-m), left=Math.max(0,rect.left-m), right=rect.right+m, bottom=rect.bottom+m;
+  document.getElementById("gbTop").style.cssText=`top:0;left:0;right:0;height:${top}px`;
+  document.getElementById("gbBottom").style.cssText=`top:${bottom}px;left:0;right:0;bottom:0`;
+  document.getElementById("gbLeft").style.cssText=`top:${top}px;left:0;width:${left}px;height:${bottom-top}px`;
+  document.getElementById("gbRight").style.cssText=`top:${top}px;left:${right}px;right:0;height:${bottom-top}px`;
+  [document.getElementById("gbTop"),document.getElementById("gbBottom"),document.getElementById("gbLeft"),document.getElementById("gbRight")].forEach(el=>{
+    el.onclick=()=>toast("👉 Clique sur l'élément entouré en violet pour continuer.");
+  });
+}
+
+// Barre de chargement simple en haut de l'écran — réutilise les chiffres du géocodage déjà
+// calculés (S.geoJob), affichés de façon plus lisible qu'un simple message "patiente".
+function updateTopLoadBar(){
+  const bar=document.getElementById("topLoadBar"); if(!bar) return;
+  if(S.geoJob&&S.geoJob.running){
+    const pct=S.geoJob.total>0?Math.round(S.geoJob.done/S.geoJob.total*100):0;
+    bar.style.display="flex";
+    document.getElementById("topLoadBarTexte").textContent="Données en cours de chargement...";
+    document.getElementById("topLoadBarFill").style.width=pct+"%";
+    document.getElementById("topLoadBarPct").textContent=pct+"%";
+  } else {
+    bar.style.display="none";
+  }
+}
+  
 function ouvrirGuide(){ document.getElementById("moGuide").classList.add("open"); }
 window.ouvrirGuide=ouvrirGuide;
 function fermerGuide(){ document.getElementById("moGuide").classList.remove("open"); }
@@ -707,9 +749,9 @@ const GUIDE_STEPS=[
 
   {selector:"#tourPrint", titre:"Imprimer / PDF", texte:"Depuis une tournée terrain, génère une fiche imprimable à faire remplir par ton client en RDV.", position:"bottom"},
 
-  {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond représente une commune — sa taille indique le nombre d'entreprises. Sans filtre, ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts.", position:"left"},
+  {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond représente une commune — sa taille indique le nombre d'entreprises. Sans filtre, ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts.", position:"top"},
 
-  {selector:"#map", titre:"Cliquer sur un point individuel", texte:"Une fois un secteur sélectionné, chaque entreprise apparaît comme un point. Clique dessus pour ouvrir sa fiche complète.", position:"left"},
+  {selector:"#map", titre:"Cliquer sur un point individuel", texte:"Une fois un secteur sélectionné, chaque entreprise apparaît comme un point. Clique dessus pour ouvrir sa fiche complète.", position:"top"},
 
   {selector:null, titre:"La fiche d'une entreprise", texte:"Tu vois son statut actuel et qui l'a mis. Tu peux le changer, ajouter une note, ou poser un rappel — visible en temps réel par toute l'équipe.", position:"center"},
 
@@ -812,15 +854,16 @@ function afficherEtapeGuideReelle(step){
       else if(posReelle==="left"){ top=r.top+r.height/2-th/2; left=r.left-tw-18; }
       else if(posReelle==="top"){ top=r.top-th-14; left=r.left+r.width/2-tw/2; }
       else { top=r.bottom+14; left=r.left+r.width/2-tw/2; }
-      top=Math.max(10,Math.min(top,window.innerHeight-th-10));
+            top=Math.max(10,Math.min(top,window.innerHeight-th-10));
       left=Math.max(10,Math.min(left,window.innerWidth-tw-10));
       tooltip.style.top=top+"px"; tooltip.style.left=left+"px";
+      positionnerBlockersGuide(step.action?r:null);
     } else {
       highlight.style.display="none";
       tooltip.style.top="50%"; tooltip.style.left="50%";
       tooltip.style.transform="translate(-50%,-50%)";
+      positionnerBlockersGuide(null);
     }
-
     // Pose l'écouteur qui fait avancer automatiquement quand l'action réelle est accomplie.
     if(step.action){
       const cibleSelector=step.action.selector||step.selector;
@@ -862,6 +905,7 @@ window.etapePrecedenteGuide=etapePrecedenteGuide;
 function terminerGuideInteractif(){
   clearTimeout(guideWaitTimer);
   document.getElementById("guideOverlay").classList.remove("show");
+  document.getElementById("guideBlockers").classList.remove("show");
   document.body.classList.remove("guide-actif");
   try{ localStorage.setItem("mel_guide_vu_v1","1"); }catch(e){}
 }
@@ -2114,6 +2158,7 @@ function passerEcranAccueil(){
 window.passerEcranAccueil=passerEcranAccueil;
 
 function updateGeoJobUI(){
+  updateTopLoadBar();
   const j=S.geoJob;
   const barWrap=document.getElementById("geoJobBarWrap");
   const bar=document.getElementById("geoJobBar");
@@ -4006,6 +4051,12 @@ function isLate(iso){ return iso<new Date().toISOString().slice(0,10); }
 <div id="guideOverlay">
   <div id="guideHighlight"></div>
   <div id="guideTooltip"></div>
+</div>
+<div id="guideBlockers">
+  <div id="gbTop"></div>
+  <div id="gbBottom"></div>
+  <div id="gbLeft"></div>
+  <div id="gbRight"></div>
 </div>
 </body>
 </html>
