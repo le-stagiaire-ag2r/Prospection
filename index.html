@@ -860,6 +860,7 @@ function afficherEtapeGuideReelle(step){
   // Nettoie l'écouteur de l'étape précédente avant d'en poser un nouveau.
   if(guideActionListener&&guideActionEl){
     guideActionEl.removeEventListener("input",guideActionListener);
+    guideActionEl.removeEventListener("change",guideActionListener);
     guideActionEl.removeEventListener("click",guideActionListener);
     guideActionListener=null; guideActionEl=null;
   }
