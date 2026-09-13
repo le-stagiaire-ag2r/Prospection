@@ -244,7 +244,10 @@ table.ps-table th:last-child, table.ps-table td:last-child{width:220px;}
 #guideOverlay{display:none;position:fixed;inset:0;z-index:8003;pointer-events:none;}
 #guideOverlay.show{display:block;}
 #guideHighlight{position:fixed;display:none;border-radius:8px;box-shadow:0 0 0 9999px rgba(15,36,56,.8);transition:all .3s ease;pointer-events:none;z-index:8001;border:2px solid #fff;}
-#guideTooltip{position:fixed;z-index:8002;background:#fff;border-radius:12px;box-shadow:0 14px 50px rgba(0,0,0,.35);padding:16px 18px;width:300px;transition:top .3s ease,left .3s ease;pointer-events:auto;}
+@keyframes gtPulseHighlight{0%,100%{border-color:#fff;} 50%{border-color:#7c3aed;}}
+#guideHighlight.gt-pulse{animation:gtPulseHighlight 1s ease-in-out infinite;}
+@keyframes gtPulseBtn{0%,100%{transform:scale(1);} 50%{transform:scale(1.1);}}
+.gt-pulse-btn{animation:gtPulseBtn .9s ease-in-out infinite;}#guideTooltip{position:fixed;z-index:8002;background:#fff;border-radius:12px;box-shadow:0 14px 50px rgba(0,0,0,.35);padding:16px 18px;width:300px;transition:top .3s ease,left .3s ease;pointer-events:auto;}
 #guideTooltip .gt-progress{font-size:10px;color:#7c3aed;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
 #guideTooltip .gt-title{font-size:14.5px;font-weight:800;margin-bottom:7px;color:#0f2438;}
 #guideTooltip .gt-texte{font-size:12.5px;line-height:1.6;color:#444;margin-bottom:14px;}
@@ -798,8 +801,9 @@ const GUIDE_STEPS=[
   {selector:null, titre:"On efface la tournée", texte:"On retire ce filtre pour repartir sur une carte neutre.", position:"center",
     avant:()=>{ S.selNAF.clear(); updateChips(); updateActiveNAF(); if(S.tour) effacerTournee(); render(); }},
 
-    {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond gris représente une commune — sa taille indique le nombre d'entreprises. Sans filtre actif (comme maintenant), ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts, et à partir d'un certain zoom, chaque rond individuel représente alors une entreprise précise, pas une commune.", position:"top"},
-
+  {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond gris représente une commune — sa taille indique le nombre d'entreprises. Sans filtre actif (comme maintenant), ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts, et à partir d'un certain zoom, chaque rond individuel représente alors une entreprise précise, pas une commune.", position:"top",
+    avant:()=>{ if(S.map) S.map.setZoom(9); }},
+  
       {selector:".guide-cible-rond", titre:"Clique sur ce rond gris", texte:"Ce rond-là précisément — clique dessus pour voir apparaître un volet à droite avec toutes les entreprises de cette ville.", position:"top",
     avant:()=>{
       document.querySelectorAll(".guide-cible-rond").forEach(el=>el.classList.remove("guide-cible-rond"));
@@ -914,18 +918,19 @@ function afficherEtapeGuideReelle(step){
     <div class="gt-title">${step.titre}</div>
     ${consigne}
     <div class="gt-texte">${step.texte}</div>
-        <div class="gt-nav">
+           <div class="gt-nav">
       <button class="btn btn-g" onclick="etapePrecedenteGuide()" style="${guideIndex===0?"visibility:hidden":""}">← Précédent</button>
-            <div class="gt-bar-wrap"><div class="gt-bar-fill" style="width:${Math.round((guideIndex+1)/window._guideStepsActifs.length*100)}%"></div></div>
-      <button class="btn btn-p" onclick="etapeSuivanteGuide()">${step.action?"Passer":guideIndex===window._guideStepsActifs.length-1?"Terminer":"Suivant →"}</button>
+      <div class="gt-bar-wrap"><div class="gt-bar-fill" style="width:${Math.round((guideIndex+1)/window._guideStepsActifs.length*100)}%"></div></div>
+      <button class="btn btn-p ${!step.action?"gt-pulse-btn":""}" onclick="etapeSuivanteGuide()">${step.action?"Passer":guideIndex===window._guideStepsActifs.length-1?"Terminer":"Suivant →"}</button>
     </div>
     <div style="text-align:center;margin-top:9px"><a href="#" onclick="terminerGuideInteractif();return false;" style="font-size:10.5px;color:var(--ink-s);text-decoration:underline">Quitter le guide</a></div>`;
     if(el) el.scrollIntoView({block:"center",behavior:"auto"});
 
   setTimeout(()=>{
-    if(el){
+        if(el){
       const r=el.getBoundingClientRect();
       highlight.style.display="block";
+      highlight.classList.toggle("gt-pulse",!!step.action);
       highlight.style.top=(r.top-6)+"px"; highlight.style.left=(r.left-6)+"px";
       highlight.style.width=(r.width+12)+"px"; highlight.style.height=(r.height+12)+"px";
       const tw=tooltip.offsetWidth, th=tooltip.offsetHeight;
