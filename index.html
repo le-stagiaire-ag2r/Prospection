@@ -939,10 +939,20 @@ function afficherEtapeGuideReelle(step){
       else if(posReelle==="left"){ top=r.top+r.height/2-th/2; left=r.left-tw-18; }
       else if(posReelle==="top"){ top=r.top-th-14; left=r.left+r.width/2-tw/2; }
       else { top=r.bottom+14; left=r.left+r.width/2-tw/2; }
-            top=Math.max(10,Math.min(top,window.innerHeight-th-10));
+             top=Math.max(10,Math.min(top,window.innerHeight-th-10));
       left=Math.max(10,Math.min(left,window.innerWidth-tw-10));
       tooltip.style.top=top+"px"; tooltip.style.left=left+"px";
       positionnerBlockersGuide(step.action?r:null);
+      // Deuxième passage : si le contenu de la zone a fini de se charger un peu après (ex: résultats
+      // de recherche qui s'affichent avec un léger délai), on recale la zone cliquable dessus.
+      setTimeout(()=>{
+        if(el&&step.action){
+          const r2=el.getBoundingClientRect();
+          highlight.style.top=(r2.top-6)+"px"; highlight.style.left=(r2.left-6)+"px";
+          highlight.style.width=(r2.width+12)+"px"; highlight.style.height=(r2.height+12)+"px";
+          positionnerBlockersGuide(r2);
+        }
+      },400);
     } else {
       highlight.style.display="none";
       tooltip.style.top="50%"; tooltip.style.left="50%";
