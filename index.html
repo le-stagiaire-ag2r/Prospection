@@ -921,10 +921,17 @@ function afficherEtapeGuideReelle(step){
            <div class="gt-nav">
       <button class="btn btn-g" onclick="etapePrecedenteGuide()" style="${guideIndex===0?"visibility:hidden":""}">← Précédent</button>
       <div class="gt-bar-wrap"><div class="gt-bar-fill" style="width:${Math.round((guideIndex+1)/window._guideStepsActifs.length*100)}%"></div></div>
-      <button class="btn btn-p ${!step.action?"gt-pulse-btn":""}" onclick="etapeSuivanteGuide()">${step.action?"Passer":guideIndex===window._guideStepsActifs.length-1?"Terminer":"Suivant →"}</button>
-    </div>
+      ${step.action?`<span id="gtPasserZone"></span>`:`<button class="btn btn-p gt-pulse-btn" onclick="etapeSuivanteGuide()">${guideIndex===window._guideStepsActifs.length-1?"Terminer":"Suivant →"}</button>`}
+      </div>
     <div style="text-align:center;margin-top:9px"><a href="#" onclick="terminerGuideInteractif();return false;" style="font-size:10.5px;color:var(--ink-s);text-decoration:underline">Quitter le guide</a></div>`;
     if(el) el.scrollIntoView({block:"center",behavior:"auto"});
+
+  if(step.action){
+    setTimeout(()=>{
+      const zone=document.getElementById("gtPasserZone");
+      if(zone) zone.innerHTML=`<a href="#" onclick="etapeSuivanteGuide();return false;" style="font-size:10.5px;color:var(--ink-s);text-decoration:underline">Un souci ? Passer cette étape</a>`;
+    },12000);
+  }
 
   setTimeout(()=>{
         if(el){
