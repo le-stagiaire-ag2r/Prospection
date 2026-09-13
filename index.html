@@ -815,9 +815,11 @@ const GUIDE_STEPS=[
     },
     attendre:()=>{ const el=document.getElementById("cp"); return el&&el.offsetParent!==null; }},
   
-  {selector:"#cp", titre:"Le volet s'est ouvert", texte:"Toutes les entreprises de cette commune apparaissent ici, sans filtre. Clique sur la première de la liste pour ouvrir sa fiche complète.", position:"left",
-    attendre:()=>{ const el=document.getElementById("mo"); return el&&el.offsetParent!==null; }},
+    {selector:"#cp", titre:"Le volet s'est ouvert", texte:"Ici s'affichent toutes les entreprises de cette commune, classées de la plus proche à la moins proche de l'adresse choisie.", position:"left"},
 
+  {selector:".cp-row", titre:"Clique sur cette entreprise", texte:"Voici la première entreprise de la liste, la plus proche — clique dessus pour ouvrir sa fiche complète.", position:"left",
+    attendre:()=>{ const el=document.getElementById("mo"); return el&&el.offsetParent!==null; }},
+  
     {selector:"[onclick*=\"signalerEntreprise\"]", titre:"Signaler fermée / déménagée", texte:"Si tu constates sur place qu'une entreprise a fermé ou déménagé, ce bouton la signale au manager pour qu'elle soit nettoyée du fichier — pas besoin de cliquer maintenant, juste pour savoir que ça existe.", position:"left"},
 
     {selector:"#moTelTerrain", titre:"Téléphone trouvé sur place", texte:"Si tu trouves un numéro sur place qui n'est pas dans le fichier, tu peux le noter ici, puis cliquer sur OK juste à côté pour l'enregistrer — visible instantanément par toute l'équipe. (Pas besoin de le faire maintenant, clique juste sur Suivant.)", position:"left"},
