@@ -854,6 +854,7 @@ function demarrerGuideInteractif(){
 }
 window.demarrerGuideInteractif=demarrerGuideInteractif;
 
+let guideAvantExecute=-1;
 function afficherEtapeGuide(){
   clearTimeout(guideWaitTimer);
   if(guideIndex<0) guideIndex=0;
@@ -861,6 +862,14 @@ function afficherEtapeGuide(){
   const step=window._guideStepsActifs[guideIndex];
   const tooltip=document.getElementById("guideTooltip");
   const highlight=document.getElementById("guideHighlight");
+
+  // avant() doit s'exécuter AVANT de vérifier si l'élément ciblé existe — sinon, une étape dont
+  // avant() est censée créer/désigner l'élément (ex: repérer le plus gros rond) reste bloquée pour
+  // toujours, puisqu'elle attend un élément que ce code n'a jamais eu l'occasion de créer.
+  if(guideAvantExecute!==guideIndex){
+    if(typeof step.avant==="function") step.avant();
+    guideAvantExecute=guideIndex;
+  }
 
   if(step.selector){
     const el=document.querySelector(step.selector);
@@ -899,7 +908,6 @@ let guideActionEl=null;
 function afficherEtapeGuideReelle(step){
   const tooltip=document.getElementById("guideTooltip");
   const highlight=document.getElementById("guideHighlight");
-  if(typeof step.avant==="function") step.avant();
   const el=step.selector?document.querySelector(step.selector):null;
 
   // Nettoie l'écouteur de l'étape précédente avant d'en poser un nouveau.
@@ -924,9 +932,8 @@ function afficherEtapeGuideReelle(step){
       ${step.action?`<span id="gtPasserZone"></span>`:`<button class="btn btn-p gt-pulse-btn" onclick="etapeSuivanteGuide()">${guideIndex===window._guideStepsActifs.length-1?"Terminer":"Suivant →"}</button>`}
       </div>
     <div style="text-align:center;margin-top:9px"><a href="#" onclick="terminerGuideInteractif();return false;" style="font-size:10.5px;color:var(--ink-s);text-decoration:underline">Quitter le guide</a></div>`;
-    if(el) el.scrollIntoView({block:"center",behavior:"auto"});
+     if(el) el.scrollIntoView({block:"center",behavior:"auto"});
 
-  if(step.action){
     setTimeout(()=>{
       const zone=document.getElementById("gtPasserZone");
       if(zone) zone.innerHTML=`<a href="#" onclick="etapeSuivanteGuide();return false;" style="font-size:10.5px;color:var(--ink-s);text-decoration:underline">Un souci ? Passer cette étape</a>`;
