@@ -747,8 +747,16 @@ const GUIDE_STEPS=[
 
   {selector:null, titre:"Patiente pendant le chargement", texte:"Ça peut prendre 20 à 30 secondes pour un gros fichier. Un écran de chargement plein écran va s'afficher pendant l'opération. Une fois qu'il a disparu, clique sur Suivant pour continuer.", position:"center"},
 
-  {selector:"[onclick*=\"toggleRayonBlock('rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier.", position:"right",
-    action:{type:"click"}},
+  {selector:"[onclick*=\"toggleRayonBlock('rgBody'\"]", titre:"Rayon géographique", texte:"Cet outil sert à voir large — toutes les entreprises d'une zone, sans lien avec un RDV précis. Clique dessus pour le déplier (si le bloc est déjà ouvert, clique une deuxième fois pour le refermer, puis reclique pour l'ouvrir).", position:"right",
+    avant:()=>{
+      
+      const body=document.getElementById("rgBody");
+      if(body&&getComputedStyle(body).display!=="none"){
+        const head=document.querySelector("[onclick*=\"toggleRayonBlock('rgBody'\"]");
+        if(head) head.click();
+      }
+    },
+    action:{type:"click", verifie:()=>{ const body=document.getElementById("rgBody"); return body&&getComputedStyle(body).display!=="none"; }}},
 
   {selector:"#rayVille", titre:"Choisis une commune", texte:"Sélectionne n'importe quelle commune dans ce menu.", position:"right",
     action:{type:"input", notEmpty:true}},
@@ -792,30 +800,30 @@ const GUIDE_STEPS=[
 
     {selector:"#map", titre:"Les ronds gris sur la carte", texte:"Chaque rond gris représente une commune — sa taille indique le nombre d'entreprises. Sans filtre actif (comme maintenant), ils restent gris. Dès qu'un filtre est actif, ils se colorent selon les statuts, et à partir d'un certain zoom, chaque rond individuel représente alors une entreprise précise, pas une commune.", position:"top"},
 
-     {selector:"#map", titre:"Cliquer sur un rond gris", texte:"Clique sur n'importe quel rond gris de la carte, pour voir apparaître un volet à droite avec toutes les entreprises de cette ville.", position:"top",
+      {selector:".guide-cible-rond", titre:"Clique sur ce rond gris", texte:"Ce rond-là précisément — clique dessus pour voir apparaître un volet à droite avec toutes les entreprises de cette ville.", position:"top",
+    avant:()=>{
+      document.querySelectorAll(".guide-cible-rond").forEach(el=>el.classList.remove("guide-cible-rond"));
+      const entries=Object.values(S.markers||{});
+      if(!entries.length) return;
+      let plusGros=entries[0];
+      entries.forEach(m=>{ if(m.getRadius&&m.getRadius()>plusGros.getRadius()) plusGros=m; });
+      if(plusGros&&plusGros._path) plusGros._path.classList.add("guide-cible-rond");
+    },
     attendre:()=>{ const el=document.getElementById("cp"); return el&&el.offsetParent!==null; }},
-
+  
   {selector:"#cp", titre:"Le volet s'est ouvert", texte:"Toutes les entreprises de cette commune apparaissent ici, sans filtre. Clique sur la première de la liste pour ouvrir sa fiche complète.", position:"left",
     attendre:()=>{ const el=document.getElementById("mo"); return el&&el.offsetParent!==null; }},
 
     {selector:"[onclick*=\"signalerEntreprise\"]", titre:"Signaler fermée / déménagée", texte:"Si tu constates sur place qu'une entreprise a fermé ou déménagé, ce bouton la signale au manager pour qu'elle soit nettoyée du fichier — pas besoin de cliquer maintenant, juste pour savoir que ça existe.", position:"left"},
 
-  {selector:"#moTelTerrain", titre:"Téléphone trouvé sur place", texte:"Si tu trouves un numéro sur place qui n'est pas dans le fichier, note-le ici — tape n'importe quel numéro pour essayer.", position:"left",
-    action:{type:"input", notEmpty:true}},
-
-  {selector:"[onclick*=\"enregistrerTelephoneTerrain\"]", titre:"Valide le numéro", texte:"Clique sur OK pour l'enregistrer — visible instantanément par toute l'équipe aussi.", position:"left",
-    action:{type:"click"}},
+    {selector:"#moTelTerrain", titre:"Téléphone trouvé sur place", texte:"Si tu trouves un numéro sur place qui n'est pas dans le fichier, tu peux le noter ici, puis cliquer sur OK juste à côté pour l'enregistrer — visible instantanément par toute l'équipe. (Pas besoin de le faire maintenant, clique juste sur Suivant.)", position:"left"},
 
   {selector:"#moStBtns", titre:"Le statut", texte:"Clique sur un statut pour l'attribuer à cette entreprise — visible en temps réel par toute l'équipe, avec ton nom et l'heure.", position:"left",
     action:{type:"click", selector:"#moStBtns button"}},
 
   {selector:"#moRap", titre:"Poser un rappel", texte:"Choisis une date ici pour te rappeler de recontacter cette entreprise — elle apparaîtra dans ton badge de rappels du jour venu.", position:"left"},
 
-  {selector:"#jTxt", titre:"Le journal", texte:"Note ce qui s'est passé lors de ce contact — tape n'importe quoi pour essayer, par exemple « Pas disponible ».", position:"left",
-    action:{type:"input", notEmpty:true}},
-
-  {selector:"[onclick*=\"addJ(\"]", titre:"Ajoute l'entrée", texte:"Clique sur le + pour l'enregistrer dans l'historique de cette entreprise.", position:"left",
-    action:{type:"click"}},
+    {selector:"#jTxt", titre:"Le journal", texte:"Note ce qui s'est passé lors de ce contact (appel, visite...), puis clique sur le + pour l'ajouter à l'historique de cette entreprise. (Pas besoin de le faire maintenant, clique juste sur Suivant.)", position:"left"},
   
   {selector:"#t-liste", titre:"Onglet Liste", texte:"Toutes les entreprises filtrées en tableau. Clique dessus.", position:"bottom", action:{type:"click"}},
 
