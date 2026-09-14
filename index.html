@@ -287,13 +287,11 @@ body.guide-actif{overflow:hidden;}
 </div>
 <!-- Écran d'accueil : demande une adresse avant de montrer la carte -->
 <div class="loading-screen" id="welcomeScreen" style="z-index:6000">
-  <div style="max-width:380px;width:92%;text-align:center">
-    <div class="ls-title" style="margin-bottom:6px">Où es-tu ?</div>
-    <div class="ls-sub" style="margin-bottom:16px">Entre une adresse (la tienne, ou celle d'un futur RDV) pour voir directement les entreprises autour.</div>
-    <input type="text" id="welcomeAddr" placeholder="Ex : 20 rue de Gand, Lille" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);font-size:13px;font-family:var(--sans);margin-bottom:10px" onkeydown="if(event.key==='Enter')demarrerDepuisEcranAccueil()">
-    <button class="btn btn-p" onclick="demarrerDepuisEcranAccueil()" style="width:100%;justify-content:center;margin-bottom:10px">Voir la carte</button>
-    <button class="btn btn-g" onclick="passerEcranAccueil()" style="width:100%;justify-content:center;font-size:11.5px">Passer, explorer sans adresse</button>
-    <div id="welcomeSt" style="font-size:11.5px;color:#c2530f;margin-top:8px"></div>
+  <div style="max-width:420px;width:92%;text-align:center">
+    <div style="font-size:38px;margin-bottom:14px">🎺</div>
+    <div class="ls-title" style="margin-bottom:8px">Bienvenue sur MEL Pro — Prospection</div>
+    <div class="ls-sub" style="margin-bottom:20px;line-height:1.6">Je vais t'accompagner avec un guide interactif de 45 étapes. Rapide, promis — et pas de quizz à la fin.</div>
+    <button class="btn btn-p" onclick="demarrerDepuisAccueil()" style="width:100%;justify-content:center">🎺 C'est parti</button>
   </div>
 </div>
 <div class="loading-screen" id="profilScreen" style="z-index:6500">
@@ -2263,11 +2261,17 @@ async function demarrerDepuisEcranAccueil(){
 }
 window.demarrerDepuisEcranAccueil=demarrerDepuisEcranAccueil;
 
-function passerEcranAccueil(){
+  function passerEcranAccueil(){
   document.getElementById("welcomeScreen").classList.remove("show");
   try{ if(!localStorage.getItem("mel_guide_vu_v1")) setTimeout(demarrerGuideInteractif,400); }catch(e){}
 }
 window.passerEcranAccueil=passerEcranAccueil;
+
+function demarrerDepuisAccueil(){
+  document.getElementById("welcomeScreen").classList.remove("show");
+  setTimeout(demarrerGuideInteractif,400);
+}
+window.demarrerDepuisAccueil=demarrerDepuisAccueil;;
 
 function updateGeoJobUI(){
   updateTopLoadBar();
