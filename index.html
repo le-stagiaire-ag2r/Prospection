@@ -10,6 +10,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <style>
+
+ .mo.guide-lecture-seule .mo-body{pointer-events:none;user-select:none;} 
 :root{
   --ink:#0f2438;--ink-s:#3c5468;--paper:#f0f4f7;--panel:#fff;
   --line:#dbe3e8;--ac:#0d6e6e;--ac-l:#eaf4f4;--ac-d:#0a4f4f;
@@ -818,8 +820,9 @@ const GUIDE_STEPS=[
   {selector:".cp-row", titre:"Clique sur cette entreprise", texte:"Voici la première entreprise de la liste, la plus proche — clique dessus pour ouvrir sa fiche complète.", position:"left",
     action:{type:"click"}},
   
-    {selector:"[onclick*=\"signalerEntreprise\"]", titre:"Signaler fermée / déménagée", texte:"Si tu constates sur place qu'une entreprise a fermé ou déménagé, ce bouton la signale au manager pour qu'elle soit nettoyée du fichier — pas besoin de cliquer maintenant, juste pour savoir que ça existe.", position:"left"},
-
+  {selector:"[onclick*=\"signalerEntreprise\"]", titre:"Signaler fermée / déménagée", texte:"Si tu constates sur place qu'une entreprise a fermé ou déménagé, ce bouton la signale au manager pour qu'elle soit nettoyée du fichier.", position:"left",
+    avant:()=>{ const mo=document.getElementById("mo"); if(mo) mo.classList.add("guide-lecture-seule"); }},
+  
     {selector:"#moTelTerrain", titre:"Téléphone trouvé sur place", texte:"Si tu trouves un numéro sur place qui n'est pas dans le fichier, tu peux le noter ici, puis cliquer sur OK juste à côté pour l'enregistrer — visible instantanément par toute l'équipe. (Pas besoin de le faire maintenant, clique juste sur Suivant.)", position:"left"},
 
   {selector:"#moStBtns", titre:"Le statut", texte:"Clique sur un statut pour l'attribuer à cette entreprise — visible en temps réel par toute l'équipe, avec ton nom et l'heure. (Pas besoin de le faire maintenant, clique juste sur Suivant.)", position:"left"},
@@ -828,8 +831,9 @@ const GUIDE_STEPS=[
 
     {selector:"#jTxt", titre:"Le journal", texte:"Note ce qui s'est passé lors de ce contact (appel, visite...), puis clique sur le + pour l'ajouter à l'historique de cette entreprise. (Pas besoin de le faire maintenant, clique juste sur Suivant.)", position:"left"},
   
-  {selector:"#t-liste", titre:"Onglet Liste", texte:"Toutes les entreprises filtrées en tableau. Clique dessus.", position:"bottom", action:{type:"click"}},
-
+  {selector:"#t-liste", titre:"Onglet Liste", texte:"Toutes les entreprises filtrées en tableau. Clique dessus.", position:"bottom", action:{type:"click"},
+    avant:()=>{ const mo=document.getElementById("mo"); if(mo){ mo.classList.remove("guide-lecture-seule"); fermerModal(); } }},
+  
   {selector:"#t-stats", titre:"Onglet Stats", texte:"Tes statistiques : contacts, RDV, taux de conversion par secteur, comparatif d'équipe. Clique dessus.", position:"bottom", action:{type:"click"}},
 
   {selector:"#t-carte", titre:"Retour à la carte", texte:"Et on revient à la carte. Clique dessus pour terminer ce point.", position:"bottom", action:{type:"click"}},
